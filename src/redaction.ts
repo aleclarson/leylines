@@ -31,12 +31,19 @@ export function redactError(error: ErrorDetails | undefined, options: RedactionO
     return undefined
   }
 
-  return {
-    ...error,
+  const result: ErrorDetails = {
     message: redactString(error.message, options),
-    stack: error.stack ? redactString(error.stack, options) : undefined,
-    cause: error.cause === undefined ? undefined : redactJson(error.cause, options),
   }
+  if (error.name !== undefined) {
+    result.name = error.name
+  }
+  if (error.stack !== undefined) {
+    result.stack = redactString(error.stack, options)
+  }
+  if (error.cause !== undefined) {
+    result.cause = redactJson(error.cause, options)
+  }
+  return result
 }
 
 function shouldRedact(name: string | undefined, value: JsonValue, options: RedactionOptions): boolean {

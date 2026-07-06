@@ -24,8 +24,23 @@ export class LogStore {
   applyRetention() {}
   assertOpen() {}
 }
+export class ScopedLogger {
+  scope
+  store
+  properties
+  metadata
+  constructor(_, _) {}
+  child(_) {}
+  debug(_, _) {}
+  info(_, _) {}
+  warn(_, _) {}
+  error(_, _) {}
+  write(_, _, _) {}
+}
 // #endregion
 
 // #region Functions
+export function defaultStorePath() {}
 export function openLogStore(_) {}
+export function openScopedLogs(_) {}
 // #endregion

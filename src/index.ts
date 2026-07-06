@@ -1,4 +1,11 @@
+export { defaultStorePath, openScopedLogs, ScopedLogger } from './node.js'
 export { openLogStore, LogStore } from './store.js'
+export type {
+  LoggerOptions,
+  LoggerWriteOptions,
+  OpenScopedLogsOptions,
+  ScopedLogs,
+} from './node.js'
 export type {
   CollapsedValue,
   ErrorDetails,

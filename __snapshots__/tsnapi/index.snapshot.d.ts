@@ -35,6 +35,17 @@ export interface LogEntryInput {
   properties?: JsonObject;
   error?: unknown;
 }
+export interface LoggerOptions {
+  scope: string;
+  properties?: JsonObject;
+  metadata?: JsonObject;
+}
+export interface LoggerWriteOptions {
+  properties?: JsonObject;
+  metadata?: JsonObject;
+  error?: unknown;
+  timestamp?: Date | string;
+}
 export interface LogPage {
   entries: LogEntry[];
   nextBefore?: string;
@@ -55,6 +66,12 @@ export interface LogQuery {
   includeDebug?: boolean;
   limit?: number;
 }
+export interface OpenScopedLogsOptions {
+  path?: string;
+  retention?: RetentionOptions;
+  redaction?: RedactionOptions;
+  collapseAboveBytes?: number;
+}
 export interface PropertyFilter {
   path: string;
   equals: JsonValue;
@@ -70,6 +87,17 @@ export interface RedactionRule {
 export interface RetentionOptions {
   maxEntries?: number;
   maxAgeMs?: number;
+}
+export interface ScopedLogs {
+  readonly store: LogStore;
+  logger(_: LoggerOptions | string): ScopedLogger;
+  query(_?: LogQuery): ReturnType<LogStore['query']>;
+  tail(_?: LogQuery, _?: {
+    signal?: AbortSignal;
+  }): AsyncIterable<LogEntry>;
+  expand(_: string): ReturnType<LogStore['expand']>;
+  listScopes(): string[];
+  close(): void;
 }
 // #endregion
 
@@ -98,8 +126,23 @@ export declare class LogStore {
   }): AsyncIterable<LogEntry>;
   close(): void;
 }
+export declare class ScopedLogger {
+  #private;
+  readonly scope: string;
+  constructor(_: LogStore, _: LoggerOptions);
+  child(_?: Partial<LoggerOptions> & {
+    scope?: string;
+  }): ScopedLogger;
+  debug(_: string, _?: LoggerWriteOptions): LogEntry;
+  info(_: string, _?: LoggerWriteOptions): LogEntry;
+  warn(_: string, _?: LoggerWriteOptions): LogEntry;
+  error(_: string, _?: LoggerWriteOptions): LogEntry;
+  write(_: LogLevel, _: string, _?: LoggerWriteOptions): LogEntry;
+}
 // #endregion
 
 // #region Functions
+export declare function defaultStorePath(): string;
 export declare function openLogStore(_: OpenLogStoreOptions): LogStore;
+export declare function openScopedLogs(_?: OpenScopedLogsOptions): ScopedLogs;
 // #endregion
