@@ -1,6 +1,7 @@
 {
   "name": "leylines",
   "version": "0.0.0",
+  "description": "Local scoped structured logs for applications and coding agents",
   "license": "MIT OR Apache-2.0",
   "author": "Alec Larson",
   "repository": {
