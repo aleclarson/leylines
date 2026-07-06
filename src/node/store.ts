@@ -16,10 +16,15 @@ import type {
   RetentionOptions,
 } from '../core/types.js'
 
+/** Options for opening the low-level durable log store. */
 export interface OpenLogStoreOptions {
+  /** SQLite store path. Parent directories are created automatically. */
   path: string
+  /** Retention policy applied after each write. */
   retention?: RetentionOptions
+  /** Redaction rules applied before entries are persisted. */
   redaction?: RedactionOptions
+  /** Byte threshold above which large JSON values are collapsed for default views. */
   collapseAboveBytes?: number
 }
 
@@ -42,7 +47,9 @@ interface CollapsedRow {
   value_json: string
 }
 
+/** Durable local log store backed by SQLite. */
 export class LogStore {
+  /** Absolute SQLite database path backing this store. */
   readonly path: string
 
   #db: DatabaseSync
@@ -52,6 +59,7 @@ export class LogStore {
   #events = new EventEmitter()
   #closed = false
 
+  /** Open or create a SQLite log store. */
   constructor(options: OpenLogStoreOptions) {
     this.path = resolve(options.path)
     this.#retention = options.retention ?? { maxEntries: 10_000 }
@@ -89,6 +97,7 @@ export class LogStore {
     `)
   }
 
+  /** Append an entry, apply redaction/retention, and return the persisted entry. */
   write(input: LogEntryInput): LogEntry {
     this.#assertOpen()
     const sequence = this.#nextSequence()
@@ -124,6 +133,7 @@ export class LogStore {
     return entry
   }
 
+  /** Query entries in chronological order with stable pagination cursors. */
   query(query: LogQuery = {}): LogPage {
     this.#assertOpen()
     const limit = Math.max(1, Math.min(query.limit ?? 50, 1_000))
@@ -140,11 +150,13 @@ export class LogStore {
     }
   }
 
+  /** List all observed scopes in lexical order. */
   listScopes(): string[] {
     this.#assertOpen()
     return (this.#db.prepare('SELECT DISTINCT scope FROM entries ORDER BY scope').all() as { scope: string }[]).map(row => row.scope)
   }
 
+  /** Retrieve a collapsed value by id, or `undefined` when it is not present. */
   expand(id: string): CollapsedValue | undefined {
     this.#assertOpen()
     const row = this.#db.prepare('SELECT id, entry_id, path, value_json FROM collapsed_values WHERE id = ?').get(id) as CollapsedRow | undefined
@@ -160,6 +172,7 @@ export class LogStore {
     }
   }
 
+  /** Stream entries appended after subscription that match the query. */
   async *tail(query: LogQuery = {}, options: { signal?: AbortSignal } = {}): AsyncIterable<LogEntry> {
     this.#assertOpen()
     for await (const [entry] of on(this.#events, 'entry', { signal: options.signal })) {
@@ -170,6 +183,7 @@ export class LogStore {
     }
   }
 
+  /** Close the SQLite database. Subsequent store operations throw. */
   close(): void {
     if (this.#closed) {
       return
@@ -278,6 +292,7 @@ export class LogStore {
   }
 }
 
+/** Open or create a low-level durable log store. */
 export function openLogStore(options: OpenLogStoreOptions): LogStore {
   return new LogStore(options)
 }

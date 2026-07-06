@@ -260,6 +260,7 @@ const cli = subcommands({
   },
 })
 
+/** Run the Leylines command-line interface with an optional argv override. */
 export async function runCli(argv: string[] = process.argv): Promise<void> {
   await run(binary(cli), normalizeArgv(argv))
 }

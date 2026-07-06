@@ -1,31 +1,51 @@
 import { toJsonValue } from '../core/json.js'
 import type { JsonObject, JsonValue, LogEntryInput, LogLevel } from '../core/types.js'
 
+/** Transport and inherited context for the browser logger. */
 export interface BrowserLoggerOptions {
+  /** Local ingestion endpoint that receives JSON log entries. */
   endpoint: string
+  /** Root scope for entries. Defaults to `browser`. */
   scope?: string
+  /** Metadata inherited by every browser entry. */
   metadata?: JsonObject
+  /** Structured properties inherited by every browser entry. */
   properties?: JsonObject
+  /** Fetch implementation to use. Defaults to global `fetch`. */
   fetch?: typeof fetch
 }
 
+/** Browser logger API used by application code. */
 export interface BrowserLogger {
+  /** Current dotted domain scope for entries from this logger. */
   readonly scope: string
+  /** Create a child logger with merged inherited context and a nested scope. */
   child(options: { scope?: string; properties?: JsonObject; metadata?: JsonObject }): BrowserLogger
+  /** Write a debug entry. */
   debug(message: string, properties?: JsonObject): void
+  /** Write an info entry. */
   info(message: string, properties?: JsonObject): void
+  /** Write a warning entry. */
   warn(message: string, properties?: JsonObject): void
+  /** Write an error entry, optionally with normalized error details. */
   error(message: string, properties?: JsonObject, error?: unknown): void
+  /** Write an entry at an explicit level. */
   write(level: LogLevel, message: string, properties?: JsonObject, error?: unknown): void
 }
 
+/** Singleton browser logger that can be connected to a runtime ingestion endpoint. */
 export interface BrowserLoggerSingleton extends BrowserLogger {
+  /** Connect or reconfigure the singleton logger and optional browser capture hooks. */
   connect(options: BrowserLoggerConnectOptions): BrowserLoggerSingleton
 }
 
+/** Options for connecting the singleton browser logger. */
 export interface BrowserLoggerConnectOptions extends BrowserLoggerOptions {
+  /** Capture console methods. `true` captures all levels; an array captures selected levels. */
   captureConsole?: boolean | LogLevel[]
+  /** Capture uncaught browser errors. Defaults to `true`. */
   captureErrors?: boolean
+  /** Capture unhandled promise rejections. Defaults to `true`. */
   captureRejections?: boolean
 }
 
@@ -249,6 +269,7 @@ class BrowserLoggerChild implements BrowserLogger {
   }
 }
 
+/** Side-effect-free singleton browser logger. Call `logger.connect` before entries are sent. */
 export const logger: BrowserLoggerSingleton = new BrowserLoggerRoot()
 
 interface BrowserScopedLoggerOptions {

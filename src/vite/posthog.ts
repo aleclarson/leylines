@@ -1,13 +1,19 @@
 import { toJsonObject, toJsonValue } from '../core/json.js'
 import type { JsonObject, JsonValue, LogEntryInput } from '../core/types.js'
 
+/** Options for redirecting PostHog browser events into the local Leylines store. */
 export interface PostHogViteOptions {
+  /** Local PostHog-compatible ingestion endpoint. Defaults to `/__leylines/posthog`. */
   endpoint?: string
+  /** Scope assigned to redirected PostHog entries. Defaults to `posthog`. */
   scope?: string
 }
 
+/** Resolved PostHog redirect settings used internally by the Vite plugin. */
 export interface ResolvedPostHogOptions {
+  /** Local PostHog-compatible ingestion endpoint. */
   endpoint: string
+  /** Scope assigned to redirected PostHog entries. */
   scope: string
 }
 

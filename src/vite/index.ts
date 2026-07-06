@@ -8,14 +8,23 @@ import {
 
 export type { PostHogViteOptions } from './posthog.js'
 
+/** Options for the Leylines Vite development plugin. */
 export interface ScopedLogsVitePluginOptions extends OpenScopedLogsOptions {
+  /** Browser log ingestion endpoint injected into the page. Defaults to `/__scoped_logs`. */
   endpoint?: string
+  /** Root browser logger scope. Defaults to `browser`. */
   scope?: string
+  /** Capture console methods from the browser logger injection. */
   captureConsole?: boolean | LogLevel[]
+  /** Capture uncaught browser errors. Defaults to `true`. */
   captureErrors?: boolean
+  /** Capture unhandled promise rejections. Defaults to `true`. */
   captureRejections?: boolean
+  /** Enable the plugin during production builds. Development serve mode is the default. */
   production?: boolean
+  /** Metadata merged into entries written by Vite ingestion middleware. */
   metadata?: JsonObject
+  /** Redirect PostHog browser product analytics into the local Leylines store. */
   posthog?: boolean | PostHogViteOptions
 }
 
@@ -41,15 +50,23 @@ interface ResponseLike {
   end(body?: string): void
 }
 
+/** Minimal Vite plugin shape returned by `scopedLogsVitePlugin`. */
 export interface VitePluginLike {
+  /** Vite plugin name. */
   name: string
+  /** Vite apply mode. */
   apply?: 'serve' | 'build'
+  /** Receive resolved Vite mode and command. */
   configResolved(config: { mode?: string; command?: string }): void
+  /** Register local ingestion middleware on the Vite dev server. */
   configureServer(server: ViteServerLike): void
+  /** Inject browser logger setup into HTML. */
   transformIndexHtml(html: string): string
+  /** Close any store resources opened by the plugin. */
   closeBundle(): void
 }
 
+/** Create a Vite plugin that captures browser logs into a local Leylines store. */
 export function scopedLogsVitePlugin(options: ScopedLogsVitePluginOptions = {}): VitePluginLike {
   const endpoint = options.endpoint ?? '/__scoped_logs'
   const scope = options.scope ?? 'browser'
