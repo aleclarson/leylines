@@ -1,5 +1,13 @@
 {
-  "include": ["src"],
+  "files": [],
+  "references": [
+    { "path": "./src/core" },
+    { "path": "./src/node" },
+    { "path": "./src/cli" },
+    { "path": "./src/browser" },
+    { "path": "./src/vite" },
+    { "path": "./src" }
+  ],
   "compilerOptions": {
     "strict": true,
     "erasableSyntaxOnly": true,
@@ -11,6 +19,6 @@
     "declaration": true,
     "emitDeclarationOnly": true,
     "skipLibCheck": true,
-    "types": ["node"]
+    "types": []
   }
 }

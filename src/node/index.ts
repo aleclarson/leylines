@@ -1,8 +1,8 @@
 import { resolve } from 'node:path'
 import { isPlainObject } from 'radashi'
 import { openLogStore, type LogStore } from './store.js'
-import { toJsonObject, toJsonValue } from './json.js'
-import type { JsonObject, LogEntry, LogLevel, LogQuery, RedactionOptions, RetentionOptions } from './types.js'
+import { toJsonObject, toJsonValue } from '../core/json.js'
+import type { JsonObject, LogEntry, LogLevel, LogQuery, RedactionOptions, RetentionOptions } from '../core/types.js'
 
 export interface OpenScopedLogsOptions {
   path?: string

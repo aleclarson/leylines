@@ -1,7 +1,6 @@
-import { randomUUID } from 'node:crypto'
 import { redactError, redactJson } from './redaction.js'
 import { toErrorDetails, toJsonObject } from './json.js'
-import type { LogEntry, LogEntryInput, RedactionOptions } from './types.ts'
+import type { LogEntry, LogEntryInput, RedactionOptions } from './types.js'
 
 export function normalizeEntry(input: LogEntryInput, sequence: number, redaction: RedactionOptions = {}): LogEntry {
   const timestamp = input.timestamp instanceof Date
@@ -9,7 +8,7 @@ export function normalizeEntry(input: LogEntryInput, sequence: number, redaction
     : input.timestamp ?? new Date().toISOString()
 
   return {
-    id: input.id ?? randomUUID(),
+    id: input.id ?? `entry-${sequence}`,
     sequence,
     timestamp,
     level: input.level,

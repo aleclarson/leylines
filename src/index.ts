@@ -1,11 +1,11 @@
-export { defaultStorePath, openScopedLogs, ScopedLogger } from './node.js'
-export { openLogStore, LogStore } from './store.js'
+export { defaultStorePath, openScopedLogs, ScopedLogger } from './node/index.js'
+export { openLogStore, LogStore } from './node/store.js'
 export type {
   LoggerOptions,
   LoggerWriteOptions,
   OpenScopedLogsOptions,
   ScopedLogs,
-} from './node.js'
+} from './node/index.js'
 export type {
   CollapsedValue,
   ErrorDetails,
@@ -21,4 +21,4 @@ export type {
   RedactionOptions,
   RedactionRule,
   RetentionOptions,
-} from './types.js'
+} from './core/types.js'

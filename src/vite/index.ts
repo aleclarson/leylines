@@ -1,5 +1,5 @@
-import { openScopedLogs, type OpenScopedLogsOptions, type ScopedLogs } from './node.js'
-import type { JsonObject, LogEntryInput, LogLevel } from './types.js'
+import { openScopedLogs, type OpenScopedLogsOptions, type ScopedLogs } from '../node/index.js'
+import type { JsonObject, LogEntryInput, LogLevel } from '../core/types.js'
 
 export interface ScopedLogsVitePluginOptions extends OpenScopedLogsOptions {
   endpoint?: string

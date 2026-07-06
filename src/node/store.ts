@@ -1,9 +1,10 @@
+import { randomUUID } from 'node:crypto'
 import { mkdirSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { EventEmitter, on } from 'node:events'
 import { DatabaseSync } from 'node:sqlite'
-import { normalizeEntry } from './entry.js'
-import { matchesQuery, toIso } from './query.js'
+import { normalizeEntry } from '../core/entry.js'
+import { matchesQuery, toIso } from '../core/query.js'
 import type {
   CollapsedValue,
   JsonValue,
@@ -13,7 +14,7 @@ import type {
   LogQuery,
   RedactionOptions,
   RetentionOptions,
-} from './types.js'
+} from '../core/types.js'
 
 export interface OpenLogStoreOptions {
   path: string
@@ -91,7 +92,7 @@ export class LogStore {
   write(input: LogEntryInput): LogEntry {
     this.#assertOpen()
     const sequence = this.#nextSequence()
-    const normalized = normalizeEntry(input, sequence, this.#redaction)
+    const normalized = normalizeEntry({ ...input, id: input.id ?? randomUUID() }, sequence, this.#redaction)
     const collapsed = new Map<string, JsonValue>()
     const entry = collapseEntry(normalized, this.#collapseAboveBytes, collapsed)
 

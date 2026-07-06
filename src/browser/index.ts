@@ -1,5 +1,5 @@
-import { toJsonValue } from './json.js'
-import type { JsonObject, JsonValue, LogEntryInput, LogLevel } from './types.js'
+import { toJsonValue } from '../core/json.js'
+import type { JsonObject, JsonValue, LogEntryInput, LogLevel } from '../core/types.js'
 
 export interface BrowserLoggerOptions {
   endpoint: string

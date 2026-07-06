@@ -1,0 +1,14 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "composite": true,
+    "declarationDir": "../../node_modules/.cache/leylines-types/node",
+    "tsBuildInfoFile": "../../node_modules/.cache/leylines-types/node.tsbuildinfo",
+    "types": ["node"],
+    "lib": ["esnext"]
+  },
+  "references": [
+    { "path": "../core" }
+  ],
+  "include": ["./*.ts"]
+}

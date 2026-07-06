@@ -2,9 +2,9 @@ import { EventEmitter } from 'node:events'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { createBrowserLogger } from '../src/browser.js'
+import { createBrowserLogger } from '../src/browser/index.js'
 import { openScopedLogs } from '../src/index.js'
-import { scopedLogsVitePlugin } from '../src/vite.js'
+import { scopedLogsVitePlugin } from '../src/vite/index.js'
 
 describe('scopedLogsVitePlugin', () => {
   let dir: string

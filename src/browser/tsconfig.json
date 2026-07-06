@@ -1,0 +1,14 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "composite": true,
+    "declarationDir": "../../node_modules/.cache/leylines-types/browser",
+    "tsBuildInfoFile": "../../node_modules/.cache/leylines-types/browser.tsbuildinfo",
+    "types": [],
+    "lib": ["esnext", "dom", "dom.iterable"]
+  },
+  "references": [
+    { "path": "../core" }
+  ],
+  "include": ["./*.ts"]
+}

@@ -18,8 +18,8 @@ import {
   subcommands,
   type Type,
 } from 'cmd-ts'
-import { defaultStorePath, openScopedLogs } from './node.js'
-import type { JsonValue, LogEntry, LogLevel, LogQuery, PropertyFilter } from './types.js'
+import { defaultStorePath, openScopedLogs } from '../node/index.js'
+import type { JsonValue, LogEntry, LogLevel, LogQuery, PropertyFilter } from '../core/types.js'
 
 type QueryArgs = {
   storePath?: string
