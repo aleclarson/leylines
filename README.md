@@ -164,3 +164,18 @@ ley --property request.id=req-123 --json
 
 Agents should use JSON output for automation instead of inspecting SQLite files
 directly. Store schema and file layout are internal implementation details.
+
+## Documentation
+
+- [Getting Started](docs/getting-started.md) gets a store, Node logger, CLI, and
+  Vite browser capture working.
+- [Concepts](docs/concepts.md) explains entries, scopes, metadata, properties,
+  redaction, retention, and collapsed values.
+- [Node API](docs/node-api.md) covers direct store usage, child loggers, queries,
+  tailing, and expansion.
+- [Vite And Browser](docs/vite-browser.md) covers browser capture and singleton
+  logger usage.
+- [CLI And Agent Workflows](docs/cli-agent-workflows.md) covers investigation
+  patterns and JSON output for agents.
+- [PostHog Development Capture](docs/posthog-development.md) covers redirecting
+  local PostHog events into Leylines.
