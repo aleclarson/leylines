@@ -25,6 +25,14 @@
     "./cli": {
       "types": "./dist/cli.d.mts",
       "default": "./dist/cli.mjs"
+    },
+    "./browser": {
+      "types": "./dist/browser.d.mts",
+      "default": "./dist/browser.mjs"
+    },
+    "./vite": {
+      "types": "./dist/vite.d.mts",
+      "default": "./dist/vite.mjs"
     }
   },
   "scripts": {

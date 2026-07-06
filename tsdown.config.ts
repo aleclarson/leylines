@@ -2,7 +2,7 @@ import { defineConfig } from 'tsdown'
 import ApiSnapshot from 'tsnapi/rolldown'
 
 export default defineConfig({
-  entry: ['src/index.ts', 'src/cli.ts'],
+  entry: ['src/index.ts', 'src/cli.ts', 'src/browser.ts', 'src/vite.ts'],
   format: ['esm'],
   dts: true,
   plugins: [
