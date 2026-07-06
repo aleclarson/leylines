@@ -18,8 +18,8 @@
     "node": ">=22.18.0"
   },
   "bin": {
-    "leylines": "./dist/cli.mjs",
-    "scoped-logs": "./dist/cli.mjs"
+    "ley": "./dist/cli.mjs",
+    "leylines": "./dist/cli.mjs"
   },
   "exports": {
     ".": {

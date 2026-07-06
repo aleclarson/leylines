@@ -7,7 +7,7 @@ before persistence, bounded retention, and deterministic CLI/JSON output.
 It ships as one package with:
 
 - a Node.js API for writing, querying, tailing, and expanding logs
-- a `leylines` / `scoped-logs` CLI for agent and operator workflows
+- a `ley` CLI for agent and operator workflows
 - a Vite development plugin plus browser logger
 
 Leylines uses the built-in `node:sqlite` module, so it targets modern Node.js
@@ -57,12 +57,12 @@ The CLI reads the same store as the Node API. Use `--store` to select a store or
 set `SCOPED_LOGS_STORE`.
 
 ```sh
-leylines --store .leylines/logs.sqlite
-leylines --store .leylines/logs.sqlite --scope-prefix checkout --min-level warn
-leylines --store .leylines/logs.sqlite --property request.id=req-123 --json
-leylines scopes --store .leylines/logs.sqlite
-leylines expand '<entry-id>:properties.payload' --store .leylines/logs.sqlite
-leylines path --store .leylines/logs.sqlite
+ley --store .leylines/logs.sqlite
+ley --store .leylines/logs.sqlite --scope-prefix checkout --min-level warn
+ley --store .leylines/logs.sqlite --property request.id=req-123 --json
+ley scopes --store .leylines/logs.sqlite
+ley expand '<entry-id>:properties.payload' --store .leylines/logs.sqlite
+ley path --store .leylines/logs.sqlite
 ```
 
 Filtering supports:
@@ -149,17 +149,17 @@ const logs = openScopedLogs({
 ```
 
 Large values are collapsed in default entries and can be retrieved later with
-`logs.expand(id)` or `leylines expand`.
+`logs.expand(id)` or `ley expand`.
 
 ## Agent Workflow
 
 Start broad, discover scopes, then pivot through structured properties:
 
 ```sh
-leylines --limit 30
-leylines scopes
-leylines --scope-prefix checkout --json
-leylines --property request.id=req-123 --json
+ley --limit 30
+ley scopes
+ley --scope-prefix checkout --json
+ley --property request.id=req-123 --json
 ```
 
 Agents should use JSON output for automation instead of inspecting SQLite files
