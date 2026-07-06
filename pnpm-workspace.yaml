@@ -3,6 +3,6 @@ packages:
 minimumReleaseAge: 10080
 minimumReleaseAgeExclude:
   - lildocs
-  - exports-md@0.1.4
+  - exports-md
 allowBuilds:
   esbuild: true
