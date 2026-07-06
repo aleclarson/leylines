@@ -13,9 +13,19 @@
     "examples"
   ],
   "type": "module",
+  "bin": {
+    "leylines": "./dist/cli.mjs",
+    "scoped-logs": "./dist/cli.mjs"
+  },
   "exports": {
-    "types": "./dist/index.d.mts",
-    "default": "./dist/index.mjs"
+    ".": {
+      "types": "./dist/index.d.mts",
+      "default": "./dist/index.mjs"
+    },
+    "./cli": {
+      "types": "./dist/cli.d.mts",
+      "default": "./dist/cli.mjs"
+    }
   },
   "scripts": {
     "dev": "tsdown --sourcemap --watch",
