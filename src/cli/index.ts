@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-import { fileURLToPath } from 'node:url'
 import { inspect } from 'node:util'
 import {
   array,
@@ -319,6 +318,6 @@ function parseJsonValue(value: string): JsonValue {
   }
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+if (import.meta.main) {
   await runCli(process.argv)
 }

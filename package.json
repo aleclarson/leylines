@@ -14,6 +14,9 @@
     "examples"
   ],
   "type": "module",
+  "engines": {
+    "node": ">=22.18.0"
+  },
   "bin": {
     "leylines": "./dist/cli.mjs",
     "scoped-logs": "./dist/cli.mjs"
