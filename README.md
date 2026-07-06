@@ -22,7 +22,7 @@ pnpm add leylines
 ```ts
 import { openScopedLogs } from 'leylines'
 
-const logs = openScopedLogs({ path: '.leylines/logs.sqlite' })
+const logs = openScopedLogs()
 const logger = logs.logger({
   scope: 'checkout.cart',
   properties: { request: { id: 'req-123' } },
@@ -53,16 +53,15 @@ is set or `levels: ['debug']` is requested explicitly.
 
 ## CLI
 
-The CLI reads the same store as the Node API. Use `--store` to select a store or
-set `SCOPED_LOGS_STORE`.
+The CLI reads the same inferred store as the Node API.
 
 ```sh
-ley --store .leylines/logs.sqlite
-ley --store .leylines/logs.sqlite --scope-prefix checkout --min-level warn
-ley --store .leylines/logs.sqlite --property request.id=req-123 --json
-ley scopes --store .leylines/logs.sqlite
-ley expand '<entry-id>:properties.payload' --store .leylines/logs.sqlite
-ley path --store .leylines/logs.sqlite
+ley
+ley --scope-prefix checkout --min-level warn
+ley --property request.id=req-123 --json
+ley scopes
+ley expand '<entry-id>:properties.payload'
+ley path
 ```
 
 Filtering supports:
@@ -88,7 +87,6 @@ import { scopedLogsVitePlugin } from 'leylines/vite'
 export default defineConfig({
   plugins: [
     scopedLogsVitePlugin({
-      path: '.leylines/logs.sqlite',
       scope: 'browser',
       captureConsole: ['warn', 'error'],
       captureErrors: true,
@@ -137,7 +135,6 @@ tokens.
 
 ```ts
 const logs = openScopedLogs({
-  path: '.leylines/logs.sqlite',
   redaction: {
     rules: [{ name: /^stripe/i, replacement: '[STRIPE SECRET]' }],
   },

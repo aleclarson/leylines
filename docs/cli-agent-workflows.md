@@ -3,15 +3,6 @@
 Use the CLI when a human or coding agent needs to inspect a local Leylines
 store without writing application code.
 
-## Store Selection
-
-Pass `--store` explicitly or set `SCOPED_LOGS_STORE`.
-
-```sh
-ley --store .leylines/logs.sqlite
-SCOPED_LOGS_STORE=.leylines/logs.sqlite ley
-```
-
 When no subcommand is provided, `ley` runs the recent timeline view.
 
 ## Recent Timeline

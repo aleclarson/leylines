@@ -2,11 +2,17 @@ import { resolve } from 'node:path'
 import { isPlainObject } from 'radashi'
 import { openLogStore, type LogStore } from './store.js'
 import { toJsonObject, toJsonValue } from '../core/json.js'
-import type { JsonObject, LogEntry, LogLevel, LogQuery, RedactionOptions, RetentionOptions } from '../core/types.js'
+import type {
+  JsonObject,
+  LogEntry,
+  LogLevel,
+  LogQuery,
+  RedactionOptions,
+  RetentionOptions,
+} from '../core/types.js'
 
 /** Options for opening the high-level Scoped Logs API. */
 export interface OpenScopedLogsOptions {
-  /** SQLite store path. Defaults to `defaultStorePath()`. */
   path?: string
   /** Retention policy applied after each write. */
   retention?: RetentionOptions
@@ -148,9 +154,9 @@ export function openScopedLogs(options: OpenScopedLogsOptions = {}): ScopedLogs 
   }
 }
 
-/** Resolve the default store path from environment variables or `.leylines/logs.sqlite`. */
+/** Resolve the inferred local store path. */
 export function defaultStorePath(): string {
-  return resolve(process.env.SCOPED_LOGS_STORE ?? process.env.LEYLINES_STORE ?? '.leylines/logs.sqlite')
+  return resolve('.leylines/logs.sqlite')
 }
 
 function joinScope(parent: string, child: string): string {
@@ -170,8 +176,7 @@ function mergeJsonObjects(base: JsonObject, override: JsonObject | undefined): J
     const current = result[key]
     if (isPlainObject(current) && isPlainObject(value)) {
       result[key] = mergeJsonObjects(toJsonObject(current), toJsonObject(value))
-    }
-    else {
+    } else {
       result[key] = toJsonValue(value)
     }
   }

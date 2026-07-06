@@ -17,7 +17,6 @@ import { scopedLogsVitePlugin } from 'leylines/vite'
 export default defineConfig({
   plugins: [
     scopedLogsVitePlugin({
-      path: '.leylines/logs.sqlite',
       posthog: true,
     }),
   ],
@@ -69,8 +68,8 @@ Redaction runs through the normal Leylines store path before persistence.
 ## Inspect Product Events
 
 ```sh
-ley --store .leylines/logs.sqlite --scope posthog
-ley --store .leylines/logs.sqlite --scope posthog --property event=signup_clicked --json
+ley --scope posthog
+ley --scope posthog --property event=signup_clicked --json
 ```
 
 Because event names are arbitrary product data, Leylines keeps them in

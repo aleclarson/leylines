@@ -8,13 +8,10 @@ write and query a local Leylines store directly.
 ```ts
 import { openScopedLogs } from 'leylines'
 
-const logs = openScopedLogs({
-  path: '.leylines/logs.sqlite',
-})
+const logs = openScopedLogs()
 ```
 
-If `path` is omitted, Leylines uses `SCOPED_LOGS_STORE`, then
-`LEYLINES_STORE`, then `.leylines/logs.sqlite`.
+Leylines writes to the inferred local store.
 
 Close the handle when the process no longer needs it:
 
@@ -99,21 +96,4 @@ Retrieve the full value with:
 
 ```ts
 const value = logs.expand('<entry-id>:properties.payload')
-```
-
-## Use The Low-Level Store
-
-Most code should use `openScopedLogs`. Use `openLogStore` only when you need
-store-level writes without logger lifecycle helpers.
-
-```ts
-import { openLogStore } from 'leylines'
-
-const store = openLogStore({ path: '.leylines/logs.sqlite' })
-store.write({
-  level: 'info',
-  scope: 'script',
-  message: 'ran migration',
-})
-store.close()
 ```

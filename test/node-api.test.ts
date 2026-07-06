@@ -1,6 +1,6 @@
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { join, resolve } from 'node:path'
 import { defaultStorePath, openScopedLogs } from '../src/index.js'
 
 describe('openScopedLogs', () => {
@@ -12,8 +12,6 @@ describe('openScopedLogs', () => {
 
   afterEach(() => {
     rmSync(dir, { recursive: true, force: true })
-    delete process.env.SCOPED_LOGS_STORE
-    delete process.env.LEYLINES_STORE
   })
 
   it('creates scoped loggers that write through the canonical store', () => {
@@ -29,7 +27,10 @@ describe('openScopedLogs', () => {
       metadata: { pid: 123 },
     })
 
-    expect(logs.query({ scope: 'checkout.cart', properties: [{ path: 'request.id', equals: 'req-1' }] }).entries[0]).toMatchObject({
+    expect(
+      logs.query({ scope: 'checkout.cart', properties: [{ path: 'request.id', equals: 'req-1' }] })
+        .entries[0],
+    ).toMatchObject({
       level: 'info',
       scope: 'checkout.cart',
       message: 'cart opened',
@@ -57,16 +58,17 @@ describe('openScopedLogs', () => {
     logs.close()
   })
 
-  it('uses environment-backed default store paths', () => {
-    process.env.SCOPED_LOGS_STORE = join(dir, 'custom.sqlite')
-
-    expect(defaultStorePath()).toBe(join(dir, 'custom.sqlite'))
+  it('uses the inferred default store path', () => {
+    expect(defaultStorePath()).toBe(resolve('.leylines/logs.sqlite'))
   })
 
   it('delegates query, tail, expansion, scopes, and close to the store', async () => {
     const logs = openScopedLogs({ path: join(dir, 'logs.sqlite'), collapseAboveBytes: 20 })
     const controller = new AbortController()
-    const next = logs.tail({ scope: 'app' }, { signal: controller.signal })[Symbol.asyncIterator]().next()
+    const next = logs
+      .tail({ scope: 'app' }, { signal: controller.signal })
+      [Symbol.asyncIterator]()
+      .next()
 
     const logger = logs.logger('app')
     logger.error('failed', {

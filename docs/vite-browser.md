@@ -13,7 +13,6 @@ import { scopedLogsVitePlugin } from 'leylines/vite'
 export default defineConfig({
   plugins: [
     scopedLogsVitePlugin({
-      path: '.leylines/logs.sqlite',
       endpoint: '/__scoped_logs',
       scope: 'browser',
       captureConsole: ['warn', 'error'],
@@ -26,7 +25,7 @@ export default defineConfig({
 
 In serve mode, the plugin:
 
-- opens the configured local store
+- opens the inferred local store
 - registers a browser log ingestion endpoint
 - injects `logger.connect(...)` into HTML
 - optionally captures console calls, uncaught errors, and unhandled rejections
@@ -90,6 +89,6 @@ logger.
 ## Inspect Browser Logs
 
 ```sh
-ley --store .leylines/logs.sqlite --scope-prefix browser
-ley --store .leylines/logs.sqlite --scope-prefix browser --json
+ley --scope-prefix browser
+ley --scope-prefix browser --json
 ```

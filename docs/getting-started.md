@@ -24,7 +24,7 @@ pnpm add leylines
 ```ts
 import { openScopedLogs } from 'leylines'
 
-const logs = openScopedLogs({ path: '.leylines/logs.sqlite' })
+const logs = openScopedLogs()
 const logger = logs.logger({
   scope: 'app.startup',
   properties: { session: { id: 'dev-1' } },
@@ -45,9 +45,9 @@ This writes one structured entry with a stable scope and queryable properties.
 The CLI reads the same store:
 
 ```sh
-ley --store .leylines/logs.sqlite --limit 20
-ley --store .leylines/logs.sqlite --scope-prefix app --json
-ley scopes --store .leylines/logs.sqlite
+ley --limit 20
+ley --scope-prefix app --json
+ley scopes
 ```
 
 Use `--json` when another tool or agent will consume the output.
@@ -62,7 +62,6 @@ import { scopedLogsVitePlugin } from 'leylines/vite'
 export default defineConfig({
   plugins: [
     scopedLogsVitePlugin({
-      path: '.leylines/logs.sqlite',
       scope: 'browser',
       captureConsole: ['warn', 'error'],
     }),
