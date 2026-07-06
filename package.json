@@ -54,6 +54,7 @@
   },
   "devDependencies": {
     "@types/node": "^26.0.1",
+    "lildocs": "^0.0.0",
     "oxfmt": "^0.56.0",
     "oxlint": "^1.71.0",
     "radashi": "^12.9.1",
