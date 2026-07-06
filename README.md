@@ -102,6 +102,19 @@ The plugin registers a local ingestion endpoint and injects the browser logger
 during Vite serve mode. Production build capture is quiet by default; pass
 `production: true` only when browser capture is intentionally desired.
 
+PostHog product metrics can be redirected into the same local store during
+development:
+
+```ts
+scopedLogsVitePlugin({
+  posthog: true,
+})
+
+posthog.init(projectKey, {
+  api_host: '/__leylines/posthog',
+})
+```
+
 Application code can also use the browser logger directly:
 
 ```ts

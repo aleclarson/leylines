@@ -75,6 +75,108 @@ describe('scopedLogsVitePlugin', () => {
       '<html><head></head><body></body></html>',
     )
   })
+
+  it('redirects PostHog capture payloads into the local log store', async () => {
+    const plugin = scopedLogsVitePlugin({
+      path: storePath,
+      posthog: true,
+    })
+    const server = fakeServer()
+    plugin.configResolved({ mode: 'development', command: 'serve' })
+    plugin.configureServer(server)
+
+    await server.post('/__leylines/posthog', {
+      event: 'signup_clicked',
+      distinct_id: 'user-1',
+      properties: {
+        $current_url: 'http://localhost/signup',
+        plan: 'pro',
+        token: 'secret',
+      },
+    })
+    await server.postBody(
+      '/__leylines/posthog',
+      new URLSearchParams({
+        event: 'invite_sent',
+        distinct_id: 'user-2',
+      }).toString(),
+    )
+    plugin.closeBundle()
+
+    const logs = openScopedLogs({ path: storePath })
+    const entries = logs.query({ scope: 'posthog', includeDebug: true }).entries
+    expect(entries[0]).toMatchObject({
+      level: 'info',
+      scope: 'posthog',
+      message: 'signup_clicked',
+      metadata: {
+        source: 'posthog',
+        posthogEndpoint: '/__leylines/posthog',
+        posthogRequestUrl: '/__leylines/posthog',
+        browserUrl: 'http://localhost/signup',
+        viteMode: 'development',
+        viteCommand: 'serve',
+      },
+      properties: {
+        event: 'signup_clicked',
+        distinctId: 'user-1',
+        properties: {
+          plan: 'pro',
+          token: '[REDACTED]',
+        },
+      },
+    })
+    expect(entries[1]).toMatchObject({
+      scope: 'posthog',
+      message: 'invite_sent',
+      properties: {
+        event: 'invite_sent',
+        distinctId: 'user-2',
+      },
+    })
+    logs.close()
+  })
+
+  it('redirects PostHog batch payloads with custom endpoint and scope', async () => {
+    const plugin = scopedLogsVitePlugin({
+      path: storePath,
+      posthog: {
+        endpoint: '/analytics',
+        scope: 'metrics.product',
+      },
+    })
+    const server = fakeServer()
+    plugin.configureServer(server)
+
+    await server.post('/analytics', {
+      batch: [
+        { event: '$pageview', properties: { distinct_id: 'user-1' } },
+        { event: 'project_created', properties: { projectId: 'project-1' } },
+      ],
+    })
+    plugin.closeBundle()
+
+    const logs = openScopedLogs({ path: storePath })
+    expect(logs.query({ scope: 'metrics.product', includeDebug: true }).entries).toEqual([
+      expect.objectContaining({
+        scope: 'metrics.product',
+        message: '$pageview',
+        properties: expect.objectContaining({
+          event: '$pageview',
+          distinctId: 'user-1',
+        }),
+      }),
+      expect.objectContaining({
+        scope: 'metrics.product',
+        message: 'project_created',
+        properties: expect.objectContaining({
+          event: 'project_created',
+          properties: { projectId: 'project-1' },
+        }),
+      }),
+    ])
+    logs.close()
+  })
 })
 
 describe('browser logger', () => {
@@ -208,15 +310,18 @@ function fakeServer() {
       },
     },
     post(path: string, body: unknown) {
+      return this.postBody(path, JSON.stringify(body))
+    },
+    postBody(path: string, body: string) {
       const handler = handlers.get(path)
       if (!handler) {
         throw new Error(`No handler for ${path}`)
       }
 
-      const req = new FakeRequest('POST')
+      const req = new FakeRequest('POST', path)
       const res = new FakeResponse()
       handler(req, res, () => {})
-      req.emit('data', JSON.stringify(body))
+      req.emit('data', body)
       req.emit('end')
       return res.done
     },
@@ -225,10 +330,12 @@ function fakeServer() {
 
 class FakeRequest extends EventEmitter {
   readonly method: string
+  readonly url: string
 
-  constructor(method: string) {
+  constructor(method: string, url: string) {
     super()
     this.method = method
+    this.url = url
   }
 }
 
