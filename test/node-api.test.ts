@@ -1,16 +1,19 @@
-import { mkdtempSync, rmSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { defaultStorePath, openScopedLogs } from '../src/index.js'
 
 describe('openScopedLogs', () => {
   let dir: string
+  let cwd: string
 
   beforeEach(() => {
     dir = mkdtempSync(join(tmpdir(), 'leylines-node-'))
+    cwd = process.cwd()
   })
 
   afterEach(() => {
+    process.chdir(cwd)
     rmSync(dir, { recursive: true, force: true })
   })
 
@@ -60,6 +63,39 @@ describe('openScopedLogs', () => {
 
   it('uses the inferred default store path', () => {
     expect(defaultStorePath()).toBe(resolve('.leylines/logs.sqlite'))
+  })
+
+  it('adds the default store directory to local git excludes', () => {
+    const repoDir = join(dir, 'repo')
+    const excludePath = join(repoDir, '.git/info/exclude')
+    mkdirSync(join(repoDir, '.git/info'), { recursive: true })
+    writeFileSync(excludePath, '# local excludes\n')
+    process.chdir(repoDir)
+
+    openScopedLogs().close()
+    const contents = readFileSync(excludePath, 'utf8')
+
+    expect(contents).toBe('# local excludes\n.leylines/\n')
+
+    openScopedLogs().close()
+    expect(readFileSync(excludePath, 'utf8')).toBe(contents)
+  })
+
+  it('resolves git excludes through worktree gitdir files', () => {
+    const worktreeDir = join(dir, 'worktree')
+    const commonGitDir = join(dir, 'main.git')
+    const worktreeGitDir = join(commonGitDir, 'worktrees/worktree')
+    const excludePath = join(commonGitDir, 'info/exclude')
+    mkdirSync(worktreeDir, { recursive: true })
+    mkdirSync(worktreeGitDir, { recursive: true })
+    mkdirSync(join(commonGitDir, 'info'), { recursive: true })
+    writeFileSync(join(worktreeDir, '.git'), `gitdir: ${worktreeGitDir}\n`)
+    writeFileSync(join(worktreeGitDir, 'commondir'), '../..\n')
+    process.chdir(worktreeDir)
+
+    openScopedLogs().close()
+
+    expect(readFileSync(excludePath, 'utf8')).toBe('.leylines/\n')
   })
 
   it('delegates query, tail, expansion, scopes, and close to the store', async () => {

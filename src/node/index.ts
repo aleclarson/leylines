@@ -1,4 +1,5 @@
-import { resolve } from 'node:path'
+import { appendFileSync, readFileSync, statSync, mkdirSync } from 'node:fs'
+import { dirname, join, resolve } from 'node:path'
 import { isPlainObject } from 'radashi'
 import { openLogStore, type LogStore } from './store.js'
 import { toJsonObject, toJsonValue } from '../core/json.js'
@@ -124,8 +125,13 @@ export class ScopedLogger {
 
 /** Open the high-level Scoped Logs API around a durable local store. */
 export function openScopedLogs(options: OpenScopedLogsOptions = {}): ScopedLogs {
+  const path = options.path ?? defaultStorePath()
+  if (options.path === undefined) {
+    ensureDefaultStoreGitExcluded()
+  }
+
   const store = openLogStore({
-    path: options.path ?? defaultStorePath(),
+    path,
     retention: options.retention,
     redaction: options.redaction,
     collapseAboveBytes: options.collapseAboveBytes,
@@ -157,6 +163,64 @@ export function openScopedLogs(options: OpenScopedLogsOptions = {}): ScopedLogs 
 /** Resolve the inferred local store path. */
 export function defaultStorePath(): string {
   return resolve('.leylines/logs.sqlite')
+}
+
+function ensureDefaultStoreGitExcluded(): void {
+  try {
+    const gitDir = findGitDir(process.cwd())
+    if (!gitDir) {
+      return
+    }
+
+    const excludePath = join(resolveGitCommonDir(gitDir), 'info', 'exclude')
+    const contents = readOptionalFile(excludePath)
+    if (contents?.split(/\r?\n/).includes('.leylines/')) {
+      return
+    }
+
+    mkdirSync(dirname(excludePath), { recursive: true })
+    appendFileSync(excludePath, `${contents && !contents.endsWith('\n') ? '\n' : ''}.leylines/\n`)
+  } catch {
+    // Logging should keep working in non-standard or read-only Git environments.
+  }
+}
+
+function findGitDir(startDir: string): string | undefined {
+  let dir = resolve(startDir)
+  while (true) {
+    const dotGit = join(dir, '.git')
+    try {
+      const stats = statSync(dotGit)
+      if (stats.isDirectory()) {
+        return dotGit
+      }
+      if (stats.isFile()) {
+        const match = /^gitdir:\s*(.+)$/i.exec(readFileSync(dotGit, 'utf8').trim())
+        return match ? resolve(dir, match[1]) : undefined
+      }
+    } catch {
+      // Keep walking until a Git directory is found or the filesystem root is reached.
+    }
+
+    const parent = dirname(dir)
+    if (parent === dir) {
+      return undefined
+    }
+    dir = parent
+  }
+}
+
+function resolveGitCommonDir(gitDir: string): string {
+  const commonDir = readOptionalFile(join(gitDir, 'commondir'))?.trim()
+  return commonDir ? resolve(gitDir, commonDir) : gitDir
+}
+
+function readOptionalFile(path: string): string | undefined {
+  try {
+    return readFileSync(path, 'utf8')
+  } catch {
+    return undefined
+  }
 }
 
 function joinScope(parent: string, child: string): string {
