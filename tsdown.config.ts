@@ -9,7 +9,9 @@ export default defineConfig({
     vite: 'src/vite/index.ts',
   },
   format: ['esm'],
-  dts: true,
+  dts: {
+    build: true,
+  },
   plugins: [
     ApiSnapshot(),
   ],
