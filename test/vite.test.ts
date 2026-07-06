@@ -2,7 +2,7 @@ import { EventEmitter } from 'node:events'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { createBrowserLogger } from '../src/browser/index.js'
+import { logger } from '../src/browser/index.js'
 import { openScopedLogs } from '../src/index.js'
 import { scopedLogsVitePlugin } from '../src/vite/index.js'
 
@@ -20,7 +20,11 @@ describe('scopedLogsVitePlugin', () => {
   })
 
   it('registers a local ingestion endpoint that writes redacted browser entries', async () => {
-    const plugin = scopedLogsVitePlugin({ path: storePath, endpoint: '/logs', metadata: { viteMode: 'override' } })
+    const plugin = scopedLogsVitePlugin({
+      path: storePath,
+      endpoint: '/logs',
+      metadata: { viteMode: 'override' },
+    })
     const server = fakeServer()
     plugin.configResolved({ mode: 'test', command: 'serve' })
     plugin.configureServer(server)
@@ -51,22 +55,42 @@ describe('scopedLogsVitePlugin', () => {
   })
 
   it('injects browser logger setup for serve mode and stays quiet for build mode by default', () => {
-    const serve = scopedLogsVitePlugin({ endpoint: '/logs', scope: 'app.browser', captureConsole: ['error'] })
+    const serve = scopedLogsVitePlugin({
+      endpoint: '/logs',
+      scope: 'app.browser',
+      captureConsole: ['error'],
+    })
     serve.configResolved({ mode: 'development', command: 'serve' })
 
-    expect(serve.transformIndexHtml('<html><head></head><body></body></html>')).toContain('installBrowserLogger')
-    expect(serve.transformIndexHtml('<html><head></head><body></body></html>')).toContain('"scope":"app.browser"')
+    expect(serve.transformIndexHtml('<html><head></head><body></body></html>')).toContain(
+      'logger.connect',
+    )
+    expect(serve.transformIndexHtml('<html><head></head><body></body></html>')).toContain(
+      '"scope":"app.browser"',
+    )
 
     const build = scopedLogsVitePlugin()
     build.configResolved({ mode: 'production', command: 'build' })
-    expect(build.transformIndexHtml('<html><head></head><body></body></html>')).toBe('<html><head></head><body></body></html>')
+    expect(build.transformIndexHtml('<html><head></head><body></body></html>')).toBe(
+      '<html><head></head><body></body></html>',
+    )
   })
 })
 
-describe('createBrowserLogger', () => {
+describe('browser logger', () => {
+  afterEach(() => {
+    logger.connect({
+      endpoint: '/logs',
+      fetch: noOpFetch,
+      captureConsole: false,
+      captureErrors: false,
+      captureRejections: false,
+    })
+  })
+
   it('sends entries with browser metadata to the configured endpoint', () => {
-    const calls: Array<{ url: string, body: unknown }> = []
-    const logger = createBrowserLogger({
+    const calls: Array<{ url: string; body: unknown }> = []
+    logger.connect({
       endpoint: '/logs',
       scope: 'browser',
       metadata: { sessionId: 's1' },
@@ -74,6 +98,8 @@ describe('createBrowserLogger', () => {
         calls.push({ url, body: JSON.parse(init.body ?? '{}') })
         return Promise.resolve({ ok: true })
       }) as typeof fetch,
+      captureErrors: false,
+      captureRejections: false,
     })
 
     logger.child({ scope: 'router', properties: { route: '/home' } }).info('route loaded')
@@ -91,10 +117,89 @@ describe('createBrowserLogger', () => {
       },
     ])
   })
+
+  it('keeps child scopes relative to the current connected root', () => {
+    const calls: Array<{ url: string; body: { scope?: string } }> = []
+    const routerLogger = logger.child({ scope: 'router' })
+    const transport = ((url: string, init: { body?: string }) => {
+      calls.push({ url, body: JSON.parse(init.body ?? '{}') })
+      return Promise.resolve({ ok: true })
+    }) as typeof fetch
+
+    logger.connect({
+      endpoint: '/logs',
+      scope: 'browser',
+      fetch: transport,
+      captureErrors: false,
+      captureRejections: false,
+    })
+    routerLogger.info('loaded')
+
+    logger.connect({
+      endpoint: '/logs',
+      scope: 'app',
+      fetch: transport,
+      captureErrors: false,
+      captureRejections: false,
+    })
+    routerLogger.info('reloaded')
+
+    expect(calls.map((call) => call.body.scope)).toEqual(['browser.router', 'app.router'])
+  })
+
+  it('keeps console capture idempotent across repeated connects', () => {
+    const calls: Array<{ url: string; body: { message?: string } }> = []
+    const originalError = console.error
+    console.error = () => {}
+
+    try {
+      logger.connect({
+        endpoint: '/logs',
+        scope: 'browser',
+        fetch: ((url: string, init: { body?: string }) => {
+          calls.push({ url, body: JSON.parse(init.body ?? '{}') })
+          return Promise.resolve({ ok: true })
+        }) as typeof fetch,
+        captureConsole: ['error'],
+        captureErrors: false,
+        captureRejections: false,
+      })
+      console.error('first')
+
+      logger.connect({
+        endpoint: '/logs',
+        scope: 'browser',
+        fetch: ((url: string, init: { body?: string }) => {
+          calls.push({ url, body: JSON.parse(init.body ?? '{}') })
+          return Promise.resolve({ ok: true })
+        }) as typeof fetch,
+        captureConsole: ['error'],
+        captureErrors: false,
+        captureRejections: false,
+      })
+      console.error('second')
+
+      expect(calls.map((call) => call.body.message)).toEqual(['first', 'second'])
+    } finally {
+      logger.connect({
+        endpoint: '/logs',
+        fetch: noOpFetch,
+        captureConsole: false,
+        captureErrors: false,
+        captureRejections: false,
+      })
+      console.error = originalError
+    }
+  })
 })
 
+const noOpFetch = (() => Promise.resolve({ ok: true } as Response)) as unknown as typeof fetch
+
 function fakeServer() {
-  const handlers = new Map<string, (req: FakeRequest, res: FakeResponse, next: () => void) => void>()
+  const handlers = new Map<
+    string,
+    (req: FakeRequest, res: FakeResponse, next: () => void) => void
+  >()
 
   return {
     middlewares: {
@@ -133,7 +238,7 @@ class FakeResponse {
   #resolve!: () => void
 
   constructor() {
-    this.done = new Promise(resolve => {
+    this.done = new Promise((resolve) => {
       this.#resolve = resolve
     })
   }

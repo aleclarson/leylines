@@ -3,7 +3,7 @@ import type { JsonObject, JsonValue, LogEntryInput, LogLevel } from '../core/typ
 
 export interface BrowserLoggerOptions {
   endpoint: string
-  scope: string
+  scope?: string
   metadata?: JsonObject
   properties?: JsonObject
   fetch?: typeof fetch
@@ -11,7 +11,7 @@ export interface BrowserLoggerOptions {
 
 export interface BrowserLogger {
   readonly scope: string
-  child(options: { scope?: string, properties?: JsonObject, metadata?: JsonObject }): BrowserLogger
+  child(options: { scope?: string; properties?: JsonObject; metadata?: JsonObject }): BrowserLogger
   debug(message: string, properties?: JsonObject): void
   info(message: string, properties?: JsonObject): void
   warn(message: string, properties?: JsonObject): void
@@ -19,13 +19,17 @@ export interface BrowserLogger {
   write(level: LogLevel, message: string, properties?: JsonObject, error?: unknown): void
 }
 
-export interface BrowserCaptureOptions extends BrowserLoggerOptions {
+export interface BrowserLoggerSingleton extends BrowserLogger {
+  connect(options: BrowserLoggerConnectOptions): BrowserLoggerSingleton
+}
+
+export interface BrowserLoggerConnectOptions extends BrowserLoggerOptions {
   captureConsole?: boolean | LogLevel[]
   captureErrors?: boolean
   captureRejections?: boolean
 }
 
-export function createBrowserLogger(options: BrowserLoggerOptions): BrowserLogger {
+function createBrowserLogger(options: BrowserLoggerOptions): BrowserLogger {
   const transport = options.fetch ?? fetch
   const browserGlobal = globalThis as typeof globalThis & {
     location?: { href?: string }
@@ -44,48 +48,208 @@ export function createBrowserLogger(options: BrowserLoggerOptions): BrowserLogge
   return new BrowserScopedLogger({
     endpoint: options.endpoint,
     fetch: transport,
-    scope: options.scope,
+    scope: options.scope ?? 'browser',
     metadata,
     properties: options.properties ?? {},
   })
 }
 
-export function installBrowserLogger(options: BrowserCaptureOptions): BrowserLogger {
-  const logger = createBrowserLogger(options)
+type BrowserLoggerChildOptions = { scope?: string; properties?: JsonObject; metadata?: JsonObject }
 
-  if (options.captureConsole) {
-    const capturedLevels: LogLevel[] = Array.isArray(options.captureConsole) ? options.captureConsole : ['debug', 'info', 'warn', 'error']
-    for (const level of capturedLevels) {
-      const original = consoleMethod(level)
-      console[level] = (...args: unknown[]) => {
-        original.apply(console, args)
-        logger.write(level, args.map(formatConsoleArg).join(' '), { console: true })
+class BrowserLoggerRoot implements BrowserLoggerSingleton {
+  #active: BrowserLogger | undefined
+  #scope = 'browser'
+  #consoleOriginals = new Map<LogLevel, (...args: unknown[]) => void>()
+  #errorListener: ((event: unknown) => void) | undefined
+  #rejectionListener: ((event: unknown) => void) | undefined
+
+  get scope(): string {
+    return this.#scope
+  }
+
+  connect(options: BrowserLoggerConnectOptions): BrowserLoggerSingleton {
+    this.#active = createBrowserLogger(options)
+    this.#scope = options.scope ?? 'browser'
+    this.#configureConsoleCapture(options.captureConsole)
+    this.#configureErrorCapture(options.captureErrors ?? true)
+    this.#configureRejectionCapture(options.captureRejections ?? true)
+    return this
+  }
+
+  child(options: BrowserLoggerChildOptions): BrowserLogger {
+    return new BrowserLoggerChild(this, options)
+  }
+
+  debug(message: string, properties?: JsonObject): void {
+    this.write('debug', message, properties)
+  }
+
+  info(message: string, properties?: JsonObject): void {
+    this.write('info', message, properties)
+  }
+
+  warn(message: string, properties?: JsonObject): void {
+    this.write('warn', message, properties)
+  }
+
+  error(message: string, properties?: JsonObject, error?: unknown): void {
+    this.write('error', message, properties, error)
+  }
+
+  write(level: LogLevel, message: string, properties?: JsonObject, error?: unknown): void {
+    this.writeFrom(undefined, level, message, properties, error)
+  }
+
+  writeFrom(
+    childOptions: BrowserLoggerChildOptions | undefined,
+    level: LogLevel,
+    message: string,
+    properties?: JsonObject,
+    error?: unknown,
+  ): void {
+    let target = this.#active
+    if (!target) {
+      return
+    }
+    if (childOptions) {
+      target = target.child(childOptions)
+    }
+    target.write(level, message, properties, error)
+  }
+
+  #configureConsoleCapture(captureConsole: boolean | LogLevel[] | undefined): void {
+    const levels = new Set<LogLevel>(
+      captureConsole
+        ? Array.isArray(captureConsole)
+          ? captureConsole
+          : ['debug', 'info', 'warn', 'error']
+        : [],
+    )
+    for (const level of LOG_LEVELS) {
+      if (levels.has(level)) {
+        this.#captureConsoleLevel(level)
+        continue
       }
+      this.#restoreConsoleLevel(level)
     }
   }
 
-  const eventTarget = globalThis as typeof globalThis & {
-    addEventListener?: (type: string, listener: (event: unknown) => void) => void
+  #captureConsoleLevel(level: LogLevel): void {
+    if (this.#consoleOriginals.has(level)) {
+      return
+    }
+
+    const original = consoleMethod(level)
+    this.#consoleOriginals.set(level, original)
+    console[level] = (...args: unknown[]) => {
+      original.apply(console, args)
+      this.write(level, args.map(formatConsoleArg).join(' '), { console: true })
+    }
   }
 
-  if (options.captureErrors ?? true) {
-    eventTarget.addEventListener?.('error', event => {
-      logger.error('Uncaught error', {
-        filename: readJsonProperty(event, 'filename'),
-        lineno: readJsonProperty(event, 'lineno'),
-        colno: readJsonProperty(event, 'colno'),
-      }, readProperty(event, 'error') ?? readProperty(event, 'message'))
-    })
+  #restoreConsoleLevel(level: LogLevel): void {
+    const original = this.#consoleOriginals.get(level)
+    if (!original) {
+      return
+    }
+    console[level] = original
+    this.#consoleOriginals.delete(level)
   }
 
-  if (options.captureRejections ?? true) {
-    eventTarget.addEventListener?.('unhandledrejection', event => {
-      logger.error('Unhandled promise rejection', {}, readProperty(event, 'reason'))
-    })
+  #configureErrorCapture(enabled: boolean): void {
+    const eventTarget = browserEventTarget()
+    if (enabled) {
+      if (this.#errorListener) {
+        return
+      }
+      this.#errorListener = (event) => {
+        this.error(
+          'Uncaught error',
+          {
+            filename: readJsonProperty(event, 'filename'),
+            lineno: readJsonProperty(event, 'lineno'),
+            colno: readJsonProperty(event, 'colno'),
+          },
+          readProperty(event, 'error') ?? readProperty(event, 'message'),
+        )
+      }
+      eventTarget.addEventListener?.('error', this.#errorListener)
+      return
+    }
+
+    if (this.#errorListener) {
+      eventTarget.removeEventListener?.('error', this.#errorListener)
+      this.#errorListener = undefined
+    }
   }
 
-  return logger
+  #configureRejectionCapture(enabled: boolean): void {
+    const eventTarget = browserEventTarget()
+    if (enabled) {
+      if (this.#rejectionListener) {
+        return
+      }
+      this.#rejectionListener = (event) => {
+        this.error('Unhandled promise rejection', {}, readProperty(event, 'reason'))
+      }
+      eventTarget.addEventListener?.('unhandledrejection', this.#rejectionListener)
+      return
+    }
+
+    if (this.#rejectionListener) {
+      eventTarget.removeEventListener?.('unhandledrejection', this.#rejectionListener)
+      this.#rejectionListener = undefined
+    }
+  }
 }
+
+class BrowserLoggerChild implements BrowserLogger {
+  #root: BrowserLoggerRoot
+  #options: BrowserLoggerChildOptions
+
+  constructor(root: BrowserLoggerRoot, options: BrowserLoggerChildOptions) {
+    this.#root = root
+    this.#options = options
+  }
+
+  get scope(): string {
+    return this.#options.scope ? joinScope(this.#root.scope, this.#options.scope) : this.#root.scope
+  }
+
+  child(options: BrowserLoggerChildOptions): BrowserLogger {
+    return new BrowserLoggerChild(this.#root, {
+      scope: options.scope
+        ? this.#options.scope
+          ? joinScope(this.#options.scope, options.scope)
+          : options.scope
+        : this.#options.scope,
+      metadata: { ...this.#options.metadata, ...options.metadata },
+      properties: { ...this.#options.properties, ...options.properties },
+    })
+  }
+
+  debug(message: string, properties?: JsonObject): void {
+    this.write('debug', message, properties)
+  }
+
+  info(message: string, properties?: JsonObject): void {
+    this.write('info', message, properties)
+  }
+
+  warn(message: string, properties?: JsonObject): void {
+    this.write('warn', message, properties)
+  }
+
+  error(message: string, properties?: JsonObject, error?: unknown): void {
+    this.write('error', message, properties, error)
+  }
+
+  write(level: LogLevel, message: string, properties?: JsonObject, error?: unknown): void {
+    this.#root.writeFrom(this.#options, level, message, properties, error)
+  }
+}
+
+export const logger: BrowserLoggerSingleton = new BrowserLoggerRoot()
 
 interface BrowserScopedLoggerOptions {
   endpoint: string
@@ -111,7 +275,11 @@ class BrowserScopedLogger implements BrowserLogger {
     this.#properties = options.properties
   }
 
-  child(options: { scope?: string, properties?: JsonObject, metadata?: JsonObject }): BrowserLogger {
+  child(options: {
+    scope?: string
+    properties?: JsonObject
+    metadata?: JsonObject
+  }): BrowserLogger {
     return new BrowserScopedLogger({
       endpoint: this.#endpoint,
       fetch: this.#fetch,
@@ -169,8 +337,7 @@ function formatConsoleArg(value: unknown): string {
   }
   try {
     return JSON.stringify(value)
-  }
-  catch {
+  } catch {
     return String(value)
   }
 }
@@ -186,6 +353,15 @@ function consoleMethod(level: LogLevel): (...args: unknown[]) => void {
     case 'error':
       return console.error
   }
+}
+
+const LOG_LEVELS: LogLevel[] = ['debug', 'info', 'warn', 'error']
+
+function browserEventTarget(): typeof globalThis & {
+  addEventListener?: (type: string, listener: (event: unknown) => void) => void
+  removeEventListener?: (type: string, listener: (event: unknown) => void) => void
+} {
+  return globalThis
 }
 
 function readProperty(value: unknown, key: string): unknown {

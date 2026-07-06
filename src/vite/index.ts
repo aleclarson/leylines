@@ -13,7 +13,10 @@ export interface ScopedLogsVitePluginOptions extends OpenScopedLogsOptions {
 
 interface ViteServerLike {
   middlewares: {
-    use(path: string, handler: (req: RequestLike, res: ResponseLike, next: (error?: unknown) => void) => void): void
+    use(
+      path: string,
+      handler: (req: RequestLike, res: ResponseLike, next: (error?: unknown) => void) => void,
+    ): void
   }
 }
 
@@ -33,7 +36,7 @@ interface ResponseLike {
 export interface VitePluginLike {
   name: string
   apply?: 'serve' | 'build'
-  configResolved(config: { mode?: string, command?: string }): void
+  configResolved(config: { mode?: string; command?: string }): void
   configureServer(server: ViteServerLike): void
   transformIndexHtml(html: string): string
   closeBundle(): void
@@ -61,25 +64,29 @@ export function scopedLogsVitePlugin(options: ScopedLogsVitePluginOptions = {}):
           return
         }
 
-        readBody(req).then(body => {
-          const input = JSON.parse(body) as LogEntryInput
-          logs?.store.write({
-            ...input,
-            metadata: {
-              ...options.metadata,
-              ...input.metadata,
-              browserUrl: input.metadata?.url ?? null,
-              viteMode: mode,
-              viteCommand: command,
-            },
+        readBody(req)
+          .then((body) => {
+            const input = JSON.parse(body) as LogEntryInput
+            logs?.store.write({
+              ...input,
+              metadata: {
+                ...options.metadata,
+                ...input.metadata,
+                browserUrl: input.metadata?.url ?? null,
+                viteMode: mode,
+                viteCommand: command,
+              },
+            })
+            res.statusCode = 204
+            res.end()
           })
-          res.statusCode = 204
-          res.end()
-        }).catch(error => {
-          res.statusCode = 400
-          res.setHeader('content-type', 'application/json')
-          res.end(JSON.stringify({ error: error instanceof Error ? error.message : String(error) }))
-        })
+          .catch((error) => {
+            res.statusCode = 400
+            res.setHeader('content-type', 'application/json')
+            res.end(
+              JSON.stringify({ error: error instanceof Error ? error.message : String(error) }),
+            )
+          })
       })
     },
     transformIndexHtml(html) {
@@ -87,10 +94,7 @@ export function scopedLogsVitePlugin(options: ScopedLogsVitePluginOptions = {}):
         return html
       }
 
-      return html.replace(
-        /<\/head>/i,
-        `${scriptTag(endpoint, scope, options)}</head>`,
-      )
+      return html.replace(/<\/head>/i, `${scriptTag(endpoint, scope, options)}</head>`)
     },
     closeBundle() {
       logs?.close()
@@ -108,13 +112,13 @@ function scriptTag(endpoint: string, scope: string, options: ScopedLogsVitePlugi
     metadata: options.metadata ?? {},
   })
 
-  return `<script type="module">import{installBrowserLogger}from"leylines/browser";globalThis.__leylines=installBrowserLogger(${payload});</script>`
+  return `<script type="module">import{logger}from"leylines/browser";logger.connect(${payload});globalThis.__leylines=logger;</script>`
 }
 
 function readBody(req: RequestLike): Promise<string> {
   return new Promise((resolve, reject) => {
     const chunks: string[] = []
-    req.on('data', chunk => {
+    req.on('data', (chunk) => {
       chunks.push(String(chunk))
     })
     req.on('end', () => {

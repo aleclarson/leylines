@@ -105,9 +105,9 @@ during Vite serve mode. Production build capture is quiet by default; pass
 Application code can also use the browser logger directly:
 
 ```ts
-import { createBrowserLogger } from 'leylines/browser'
+import { logger } from 'leylines/browser'
 
-const logger = createBrowserLogger({
+logger.connect({
   endpoint: '/__scoped_logs',
   scope: 'app.router',
 })
