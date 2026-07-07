@@ -86,7 +86,6 @@ describe('tauri logger integration', () => {
         }),
         properties: {
           process: 'rust',
-          tauriLevel: 'trace',
         },
       }),
       expect.objectContaining({
@@ -100,7 +99,6 @@ describe('tauri logger integration', () => {
         }),
         properties: {
           process: 'rust',
-          tauriLevel: 'error',
         },
       }),
     ])

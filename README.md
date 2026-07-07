@@ -131,8 +131,7 @@ const detachTauriLogs = await attachTauriLogger()
 ```
 
 Forwarded Tauri records use the `browser.tauri` scope by default. Tauri `trace`
-records map to Leylines `debug` entries and keep the original level in
-`properties.tauriLevel`.
+records map to Leylines `debug` entries.
 
 PostHog product metrics can be redirected into the same local store during
 development:

@@ -32,9 +32,7 @@ export async function attachTauriLogger(
 
   return attachLogger((record) => {
     try {
-      target.write(toLeylinesLevel(record.level), record.message, {
-        tauriLevel: tauriLevelName(record.level),
-      })
+      target.write(toLeylinesLevel(record.level), record.message)
     } catch {
       // Forwarding must not interfere with Tauri's own log delivery.
     }
@@ -54,20 +52,4 @@ function toLeylinesLevel(level: TauriPluginLogLevel): LogLevel {
       return 'error'
   }
   return 'info'
-}
-
-function tauriLevelName(level: TauriPluginLogLevel): string {
-  switch (level) {
-    case TauriPluginLogLevel.Trace:
-      return 'trace'
-    case TauriPluginLogLevel.Debug:
-      return 'debug'
-    case TauriPluginLogLevel.Info:
-      return 'info'
-    case TauriPluginLogLevel.Warn:
-      return 'warn'
-    case TauriPluginLogLevel.Error:
-      return 'error'
-  }
-  return 'unknown'
 }

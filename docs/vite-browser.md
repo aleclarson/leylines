@@ -109,8 +109,7 @@ const detachTauriLogs = await attachTauriLogger({
 The Vite plugin connects `leylines/browser` before application modules run, so
 Tauri records sent through `attachTauriLogger` are posted to the same
 `/__scoped_logs` endpoint as browser entries. The default scope is
-`browser.tauri`, and each entry includes `metadata.source: 'tauri.log'` plus
-`properties.tauriLevel`.
+`browser.tauri`, and each entry includes `metadata.source: 'tauri.log'`.
 
 ## Manual Connection
 
