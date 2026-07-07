@@ -40,6 +40,37 @@ leylines({
 })
 ```
 
+## Vite Logger Capture
+
+Capture Vite's own dev-server warnings and errors when agents need structured
+diagnostics instead of terminal output:
+
+```ts
+leylines({
+  viteLogger: {
+    scope: 'dev.vite',
+    levels: ['warn', 'error'],
+  },
+})
+```
+
+Captured entries keep Vite mode, command, logger method, and Rollup/Vite error
+context such as plugin name, hook, module id, source location, frame, and stack
+when Vite provides them. Terminal output still goes through Vite's normal
+logger.
+
+```sh
+ley --scope-prefix dev.vite --min-level warn --json
+```
+
+For the default `dev.vite` scope, `captureViteLogger` is a shorthand:
+
+```ts
+leylines({
+  captureViteLogger: ['warn', 'error'],
+})
+```
+
 ## Write Browser Entries
 
 ```ts

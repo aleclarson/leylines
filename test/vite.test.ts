@@ -177,6 +177,128 @@ describe('leylines', () => {
     ])
     logs.close()
   })
+
+  it('captures Vite logger warnings and errors with structured metadata', () => {
+    const terminalOutput: Array<{ level: string; message: string }> = []
+    const viteError = Object.assign(new Error('import failed'), {
+      plugin: 'vite:import-analysis',
+      hook: 'transform',
+      id: '/src/App.tsx',
+      code: 'PLUGIN_ERROR',
+      loc: { file: '/src/App.tsx', line: 12, column: 8 },
+      frame: '11 | import missing',
+    })
+    const viteLogger = {
+      info(message: string, _options?: { error?: unknown }) {
+        terminalOutput.push({ level: 'info', message })
+      },
+      warn(message: string, _options?: { error?: unknown }) {
+        terminalOutput.push({ level: 'warn', message })
+      },
+      warnOnce(message: string, options?: { error?: unknown }) {
+        terminalOutput.push({ level: 'warnOnce', message })
+        this.warn(message, options)
+      },
+      error(message: string, _options?: { error?: unknown }) {
+        terminalOutput.push({ level: 'error', message })
+      },
+    }
+    const plugin = leylines({
+      path: storePath,
+      metadata: { testRun: 'vite-logger' },
+      viteLogger: {
+        scope: 'dev.vite',
+        levels: ['warn', 'error'],
+      },
+    })
+    plugin.configResolved({ mode: 'development', command: 'serve', logger: viteLogger })
+
+    viteLogger.info('dev server ready')
+    viteLogger.warn('\x1b[33mimport could not be analyzed\x1b[39m', { error: viteError })
+    viteLogger.warnOnce('warn once only', { error: viteError })
+    viteLogger.warnOnce('warn once only', { error: viteError })
+    viteLogger.error('hmr update failed', { error: viteError })
+    plugin.closeBundle()
+
+    expect(terminalOutput).toEqual([
+      { level: 'info', message: 'dev server ready' },
+      { level: 'warn', message: '\x1b[33mimport could not be analyzed\x1b[39m' },
+      { level: 'warnOnce', message: 'warn once only' },
+      { level: 'warn', message: 'warn once only' },
+      { level: 'warnOnce', message: 'warn once only' },
+      { level: 'warn', message: 'warn once only' },
+      { level: 'error', message: 'hmr update failed' },
+    ])
+
+    const logs = openScopedLogs({ path: storePath })
+    const entries = logs.query({ scope: 'dev.vite', includeDebug: true }).entries
+    expect(entries).toHaveLength(3)
+    expect(entries[0]).toMatchObject({
+      level: 'warn',
+      scope: 'dev.vite',
+      message: 'import could not be analyzed',
+      metadata: {
+        testRun: 'vite-logger',
+        source: 'vite.logger',
+        viteMode: 'development',
+        viteCommand: 'serve',
+        viteLoggerMethod: 'warn',
+        viteRawMessage: '\x1b[33mimport could not be analyzed\x1b[39m',
+        vitePlugin: 'vite:import-analysis',
+        viteHook: 'transform',
+        viteModuleId: '/src/App.tsx',
+        viteCode: 'PLUGIN_ERROR',
+        viteFrame: '11 | import missing',
+        viteLocation: { file: '/src/App.tsx', line: 12, column: 8 },
+      },
+      error: {
+        name: 'Error',
+        message: 'import failed',
+        stack: expect.any(String),
+      },
+    })
+    expect(
+      entries.map((entry) => [entry.level, entry.message, entry.metadata.viteLoggerMethod]),
+    ).toEqual([
+      ['warn', 'import could not be analyzed', 'warn'],
+      ['warn', 'warn once only', 'warnOnce'],
+      ['error', 'hmr update failed', 'error'],
+    ])
+    logs.close()
+  })
+
+  it('supports shorthand Vite logger level capture', () => {
+    const terminalOutput: string[] = []
+    const viteLogger = {
+      warn(message: string) {
+        terminalOutput.push(`warn:${message}`)
+      },
+      error(message: string) {
+        terminalOutput.push(`error:${message}`)
+      },
+    }
+    const plugin = leylines({
+      path: storePath,
+      captureViteLogger: ['error'],
+    })
+    plugin.configResolved({ logger: viteLogger })
+
+    viteLogger.warn('still terminal-only')
+    viteLogger.error('captured error')
+    plugin.closeBundle()
+
+    expect(terminalOutput).toEqual(['warn:still terminal-only', 'error:captured error'])
+
+    const logs = openScopedLogs({ path: storePath })
+    expect(logs.query({ scope: 'dev.vite', includeDebug: true }).entries).toEqual([
+      expect.objectContaining({
+        level: 'error',
+        scope: 'dev.vite',
+        message: 'captured error',
+      }),
+    ])
+    logs.close()
+  })
 })
 
 describe('browser logger', () => {

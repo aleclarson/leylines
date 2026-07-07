@@ -101,6 +101,22 @@ The plugin registers a local ingestion endpoint and injects the browser logger
 during Vite serve mode. Production build capture is quiet by default; pass
 `production: true` only when browser capture is intentionally desired.
 
+Vite dev-server warnings and errors can also be captured directly from Vite's
+logger without changing normal terminal output:
+
+```ts
+leylines({
+  viteLogger: {
+    scope: 'dev.vite',
+    levels: ['warn', 'error'],
+  },
+})
+```
+
+```sh
+ley --scope-prefix dev.vite --min-level warn --json
+```
+
 PostHog product metrics can be redirected into the same local store during
 development:
 

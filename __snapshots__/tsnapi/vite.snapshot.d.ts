@@ -11,22 +11,29 @@ export interface LeylinesVitePluginOptions extends OpenScopedLogsOptions {
   production?: boolean;
   metadata?: JsonObject;
   posthog?: boolean | PostHogViteOptions;
+  viteLogger?: boolean | ViteLoggerCaptureOptions;
+  captureViteLogger?: boolean | ViteLoggerCaptureLevel[];
 }
 export interface PostHogViteOptions {
   endpoint?: string;
   scope?: string;
 }
+export interface ViteLoggerCaptureOptions {
+  scope?: string;
+  levels?: ViteLoggerCaptureLevel[];
+}
 export interface VitePluginLike {
   name: string;
   apply?: 'serve' | 'build';
-  configResolved(_: {
-    mode?: string;
-    command?: string;
-  }): void;
+  configResolved(_: ViteResolvedConfigLike): void;
   configureServer(_: ViteServerLike): void;
   transformIndexHtml(_: string): string;
   closeBundle(): void;
 }
+// #endregion
+
+// #region Types
+export type ViteLoggerCaptureLevel = Extract<LogLevel, 'info' | 'warn' | 'error'>;
 // #endregion
 
 // #region Functions
