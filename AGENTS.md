@@ -74,6 +74,16 @@ Before introducing a new abstraction, ask:
 
 When the answer is unclear, prefer locality, explicitness, and inline code.
 
+## Documentation quality
+
+When adding or updating documentation, make every introduced concept concrete
+for the reader. Each concept-level section should include a minimal code, shell,
+or data block that cements understanding of the idea being explained.
+
+Use comments inside example code when they clarify the code the reader is
+looking at. Do not use comments as filler or as a substitute for showing the
+smallest useful example.
+
 ## API snapshots
 
 API snapshot updates must be treated as review-sensitive changes.
