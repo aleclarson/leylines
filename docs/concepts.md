@@ -171,8 +171,9 @@ console.log(entry.properties.apiToken) // [REDACTED]
 
 ## Retention
 
-Retention is applied after each write. Use it to keep local stores bounded by
-entry count, age, or both.
+Retention is applied when a store opens, when it closes, and periodically during
+writes. Use it to keep local stores bounded by entry count, age, or both without
+paying retention cost on every entry.
 
 ```ts
 openScopedLogs({
@@ -185,6 +186,10 @@ openScopedLogs({
 
 When both limits are configured, entries must survive both checks: old entries
 are removed by age, and only the newest `maxEntries` entries remain.
+
+Retention deletes rows and lets SQLite reuse freed pages. Leylines also
+checkpoint-truncates the SQLite WAL file when a store opens and closes, but it
+does not run `VACUUM` automatically.
 
 ## Collapsed Values
 

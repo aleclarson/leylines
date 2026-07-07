@@ -16,11 +16,13 @@ import type {
   RetentionOptions,
 } from '../core/types.js'
 
+const RETENTION_WRITE_INTERVAL = 250
+
 /** Options for opening the low-level durable log store. */
 export interface OpenLogStoreOptions {
   /** SQLite store path. Parent directories are created automatically. */
   path: string
-  /** Retention policy applied after each write. */
+  /** Retention policy applied during store maintenance. */
   retention?: RetentionOptions
   /** Redaction rules applied before entries are persisted. */
   redaction?: RedactionOptions
@@ -56,6 +58,7 @@ export class LogStore {
   #retention: RetentionOptions
   #redaction: RedactionOptions
   #collapseAboveBytes: number
+  #writesSinceRetention = 0
   #events = new EventEmitter()
   #closed = false
 
@@ -95,9 +98,12 @@ export class LogStore {
         value_json TEXT NOT NULL
       );
     `)
+
+    this.#applyRetention()
+    this.#checkpointWal()
   }
 
-  /** Append an entry, apply redaction/retention, and return the persisted entry. */
+  /** Append an entry, apply redaction, and return the persisted entry. */
   write(input: LogEntryInput): LogEntry {
     this.#assertOpen()
     const sequence = this.#nextSequence()
@@ -128,7 +134,7 @@ export class LogStore {
       insertCollapsed.run(collapsedId(entry.id, path), entry.id, path, JSON.stringify(value))
     }
 
-    this.#applyRetention()
+    this.#applyPeriodicRetention()
     this.#events.emit('entry', entry)
     return entry
   }
@@ -189,8 +195,13 @@ export class LogStore {
       return
     }
 
-    this.#db.close()
-    this.#closed = true
+    try {
+      this.#applyRetentionAfterWrites()
+      this.#checkpointWal()
+    } finally {
+      this.#db.close()
+      this.#closed = true
+    }
   }
 
   #nextSequence(): number {
@@ -269,6 +280,24 @@ export class LogStore {
     return row ? rowToEntry(row) : undefined
   }
 
+  #applyRetentionAfterWrites(): void {
+    if (this.#writesSinceRetention === 0) {
+      return
+    }
+
+    this.#applyRetention()
+    this.#writesSinceRetention = 0
+  }
+
+  #applyPeriodicRetention(): void {
+    this.#writesSinceRetention += 1
+    if (this.#writesSinceRetention < RETENTION_WRITE_INTERVAL) {
+      return
+    }
+
+    this.#applyRetentionAfterWrites()
+  }
+
   #applyRetention(): void {
     if (this.#retention.maxAgeMs !== undefined) {
       const cutoff = new Date(Date.now() - this.#retention.maxAgeMs).toISOString()
@@ -282,6 +311,14 @@ export class LogStore {
           SELECT sequence FROM entries ORDER BY timestamp DESC, sequence DESC LIMIT ?
         )
       `).run(this.#retention.maxEntries)
+    }
+  }
+
+  #checkpointWal(): void {
+    try {
+      this.#db.exec('PRAGMA wal_checkpoint(TRUNCATE);')
+    } catch {
+      // WAL truncation is opportunistic; active readers should not break logging.
     }
   }
 

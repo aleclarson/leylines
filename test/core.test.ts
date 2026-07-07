@@ -101,13 +101,42 @@ describe('LogStore', () => {
     reopened.close()
   })
 
-  it('retains only the configured number of newest entries', () => {
-    const store = openLogStore({ path: join(dir, 'logs.sqlite'), retention: { maxEntries: 2 } })
+  it('applies retention when a store opens and closes', () => {
+    const path = join(dir, 'logs.sqlite')
+    const store = openLogStore({ path, retention: { maxEntries: 2 } })
     store.write({ id: 'one', timestamp: '2026-01-01T00:00:00.000Z', level: 'info', scope: 'app', message: 'one' })
     store.write({ id: 'two', timestamp: '2026-01-01T00:00:01.000Z', level: 'info', scope: 'app', message: 'two' })
     store.write({ id: 'three', timestamp: '2026-01-01T00:00:02.000Z', level: 'info', scope: 'app', message: 'three' })
 
-    expect(store.query().entries.map(entry => entry.id)).toEqual(['two', 'three'])
+    expect(store.query().entries.map(entry => entry.id)).toEqual(['one', 'two', 'three'])
+    store.close()
+
+    const reopened = openLogStore({ path, retention: { maxEntries: 10 } })
+    expect(reopened.query().entries.map(entry => entry.id)).toEqual(['two', 'three'])
+    reopened.close()
+
+    const seeded = openLogStore({ path, retention: { maxEntries: 10 } })
+    seeded.write({ id: 'four', timestamp: '2026-01-01T00:00:03.000Z', level: 'info', scope: 'app', message: 'four' })
+    seeded.close()
+
+    const retainedOnOpen = openLogStore({ path, retention: { maxEntries: 2 } })
+    expect(retainedOnOpen.query().entries.map(entry => entry.id)).toEqual(['three', 'four'])
+    retainedOnOpen.close()
+  })
+
+  it('applies retention periodically during long-running writes', () => {
+    const store = openLogStore({ path: join(dir, 'logs.sqlite'), retention: { maxEntries: 2 } })
+    for (let index = 0; index < 250; index += 1) {
+      store.write({
+        id: `entry-${index}`,
+        timestamp: new Date(Date.UTC(2026, 0, 1, 0, 0, index)).toISOString(),
+        level: 'info',
+        scope: 'app',
+        message: `entry ${index}`,
+      })
+    }
+
+    expect(store.query().entries.map(entry => entry.id)).toEqual(['entry-248', 'entry-249'])
     store.close()
   })
 

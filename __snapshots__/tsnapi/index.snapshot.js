@@ -8,6 +8,7 @@ export class LogStore {
   retention
   redaction
   collapseAboveBytes
+  writesSinceRetention
   events
   closed
   constructor(_) {}
@@ -21,7 +22,10 @@ export class LogStore {
   candidateRows(_, _) {}
   matchesEntryBoundaries(_, _) {}
   entryById(_) {}
+  applyRetentionAfterWrites() {}
+  applyPeriodicRetention() {}
   applyRetention() {}
+  checkpointWal() {}
   assertOpen() {}
 }
 export class ScopedLogger {

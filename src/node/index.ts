@@ -15,7 +15,7 @@ import type {
 /** Options for opening the high-level Scoped Logs API. */
 export interface OpenScopedLogsOptions {
   path?: string
-  /** Retention policy applied after each write. */
+  /** Retention policy applied during store maintenance. */
   retention?: RetentionOptions
   /** Redaction rules applied before entries are persisted. */
   redaction?: RedactionOptions

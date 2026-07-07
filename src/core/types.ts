@@ -115,7 +115,7 @@ export interface LogPage {
   nextAfter?: string
 }
 
-/** Retention policy applied after each write. */
+/** Retention policy applied during store maintenance. */
 export interface RetentionOptions {
   /** Maximum number of newest entries to retain. */
   maxEntries?: number

@@ -178,6 +178,9 @@ const logs = openScopedLogs({
 })
 ```
 
+Retention runs during store maintenance: when a store opens, when it closes, and
+periodically during writes.
+
 Large values are collapsed in default entries and can be retrieved later with
 `logs.expand(id)` or `ley expand`.
 
