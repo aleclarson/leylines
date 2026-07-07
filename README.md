@@ -174,5 +174,5 @@ directly. Store schema and file layout are internal implementation details.
   logger usage.
 - [CLI And Agent Workflows](docs/cli-agent-workflows.md) covers investigation
   patterns and JSON output for agents.
-- [PostHog Development Capture](docs/posthog-development.md) covers redirecting
+- [PostHog Development Capture](docs/integrations/posthog-development.md) covers redirecting
   local PostHog events into Leylines.

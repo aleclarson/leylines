@@ -92,5 +92,5 @@ and registers a local ingestion endpoint. Production builds are quiet unless
   logger usage.
 - [CLI And Agent Workflows](./cli-agent-workflows.md) covers investigation
   patterns and machine-readable output.
-- [PostHog Development Capture](./posthog-development.md) covers redirecting
+- [PostHog Development Capture](./integrations/posthog-development.md) covers redirecting
   local product analytics into Leylines.

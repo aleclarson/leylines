@@ -15,7 +15,7 @@ inspect your first local log entries.
   mode and use the browser singleton logger.
 - [CLI And Agent Workflows](./cli-agent-workflows.md): investigate logs through
   compact human output and stable JSON output.
-- [PostHog Development Capture](./posthog-development.md): redirect local
+- [PostHog Development Capture](./integrations/posthog-development.md): redirect local
   PostHog browser events into Leylines without forwarding them.
 
 ## Source Of Truth
