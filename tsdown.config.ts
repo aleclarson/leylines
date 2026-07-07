@@ -6,6 +6,7 @@ export default defineConfig({
     index: 'src/index.ts',
     cli: 'src/cli/index.ts',
     browser: 'src/browser/index.ts',
+    tauri: 'src/tauri/index.ts',
     vite: 'src/vite/index.ts',
   },
   format: ['esm'],

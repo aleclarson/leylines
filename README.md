@@ -8,7 +8,7 @@ It ships as one package with:
 
 - a Node.js API for writing, querying, tailing, and expanding logs
 - a `ley` CLI for agent and operator workflows
-- a Vite development plugin plus browser logger
+- a Vite development plugin plus browser and Tauri loggers
 
 Leylines uses the built-in `node:sqlite` module, so it targets modern Node.js
 runtimes that include that API.
@@ -116,6 +116,23 @@ leylines({
 ```sh
 ley --scope-prefix dev.vite --min-level warn --json
 ```
+
+Tauri apps can forward `@tauri-apps/plugin-log` records through the browser
+logger connected by the Vite plugin:
+
+```sh
+pnpm add @tauri-apps/plugin-log
+```
+
+```ts
+import { attachTauriLogger } from 'leylines/tauri'
+
+const detachTauriLogs = await attachTauriLogger()
+```
+
+Forwarded Tauri records use the `browser.tauri` scope by default. Tauri `trace`
+records map to Leylines `debug` entries and keep the original level in
+`properties.tauriLevel`.
 
 PostHog product metrics can be redirected into the same local store during
 development:

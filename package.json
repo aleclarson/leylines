@@ -34,6 +34,10 @@
       "types": "./dist/browser.d.mts",
       "default": "./dist/browser.mjs"
     },
+    "./tauri": {
+      "types": "./dist/tauri.d.mts",
+      "default": "./dist/tauri.mjs"
+    },
     "./vite": {
       "types": "./dist/vite.d.mts",
       "default": "./dist/vite.mjs"
@@ -44,7 +48,7 @@
     "build": "tsdown",
     "format": "oxfmt .",
     "lint": "oxlint src",
-    "typecheck": "tsc -p src/core --noEmit && tsc -p src/node --noEmit && tsc -p src/cli --noEmit && tsc -p src/browser --noEmit && tsc -p src/vite --noEmit && tsc -p src --noEmit && tsc -p test --noEmit",
+    "typecheck": "tsc -p src/core --noEmit && tsc -p src/node --noEmit && tsc -p src/cli --noEmit && tsc -p src/browser --noEmit && tsc -p src/tauri --noEmit && tsc -p src/vite --noEmit && tsc -p src --noEmit && tsc -p test --noEmit",
     "test": "vitest",
     "prepublishOnly": "pnpm build",
     "sync-agent-rules": "curl -fsSL https://gist.githubusercontent.com/aleclarson/4c80686b1c3e204a01cdbe82f8e2c084/raw/AGENTS.md -o AGENTS.md && git add AGENTS.md && git commit -m 'chore: sync agent rules'"
@@ -52,7 +56,16 @@
   "dependencies": {
     "cmd-ts": "^0.15.0"
   },
+  "peerDependencies": {
+    "@tauri-apps/plugin-log": "^2.8.0"
+  },
+  "peerDependenciesMeta": {
+    "@tauri-apps/plugin-log": {
+      "optional": true
+    }
+  },
   "devDependencies": {
+    "@tauri-apps/plugin-log": "^2.8.0",
     "@types/node": "^26.0.1",
     "lildocs": "^0.1.6",
     "oxfmt": "^0.56.0",

@@ -86,6 +86,32 @@ The exported `logger` is a side-effect-free singleton. Importing it does not
 patch console methods, add event listeners, or send network requests. The Vite
 plugin connects it during page load.
 
+## Tauri Log Forwarding
+
+Install Tauri's log plugin in apps that should forward native-side records into
+the Vite plugin's local ingestion endpoint:
+
+```sh
+pnpm add @tauri-apps/plugin-log
+```
+
+Then attach forwarding from app startup code:
+
+```ts
+import { attachTauriLogger } from 'leylines/tauri'
+
+const detachTauriLogs = await attachTauriLogger({
+  scope: 'tauri',
+  metadata: { windowLabel: 'main' },
+})
+```
+
+The Vite plugin connects `leylines/browser` before application modules run, so
+Tauri records sent through `attachTauriLogger` are posted to the same
+`/__scoped_logs` endpoint as browser entries. The default scope is
+`browser.tauri`, and each entry includes `metadata.source: 'tauri.log'` plus
+`properties.tauriLevel`.
+
 ## Manual Connection
 
 For non-Vite browser runtimes, connect the singleton explicitly:
