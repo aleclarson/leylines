@@ -38,6 +38,7 @@ type QueryArgs = {
 }
 
 const commands = new Set(['recent', 'tail', 'scopes', 'expand', 'path'])
+const helpFlags = new Set(['--help', '-h'])
 
 const LogLevelType = oneOf(['debug', 'info', 'warn', 'error'] as const)
 
@@ -268,9 +269,16 @@ function normalizeArgv(argv: string[]): string[] {
   const [execPath = 'node', scriptPath = 'leylines', ...args] =
     argv.length >= 2 ? argv : ['node', 'leylines', ...argv]
   const first = args[0]
-  return first && commands.has(first)
-    ? [execPath, scriptPath, ...args]
-    : [execPath, scriptPath, 'recent', ...args]
+  if (!first) {
+    return [execPath, scriptPath, 'recent']
+  }
+  if (commands.has(first) || helpFlags.has(first)) {
+    return [execPath, scriptPath, ...args]
+  }
+  if (first.startsWith('-')) {
+    return [execPath, scriptPath, 'recent', ...args]
+  }
+  return [execPath, scriptPath, ...args]
 }
 
 function toQuery(args: QueryArgs): LogQuery {
