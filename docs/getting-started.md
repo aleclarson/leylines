@@ -46,11 +46,12 @@ The CLI reads the same store:
 
 ```sh
 ley --limit 20
-ley --scope-prefix app --json
+ley --scope-prefix app
 ley scopes
 ```
 
-Use `--json` when another tool or agent will consume the output.
+Use compact output for quick reading. Use `--json` when output will be parsed,
+stored, compared, or when exact entry fields are needed.
 
 ## Capture Browser Logs In Vite
 

@@ -58,7 +58,7 @@ The CLI reads the same inferred store as the Node API.
 ```sh
 ley
 ley --scope-prefix checkout --min-level warn
-ley --property request.id=req-123 --json
+ley --property request.id=req-123
 ley scopes
 ley expand '<entry-id>:properties.payload'
 ley path
@@ -74,8 +74,9 @@ Filtering supports:
 - properties: `--property path=value`
 - pagination: `--limit`
 
-Default output is compact and chronological. `--json` is the automation
-contract and returns stable JSON fields.
+Default output is compact and chronological, which works well for quick human
+or agent triage. Use `--json` when output will be parsed, stored, compared, or
+when exact entry fields such as ids, sequences, and metadata are needed.
 
 ## Vite
 
@@ -155,12 +156,13 @@ Start broad, discover scopes, then pivot through structured properties:
 ```sh
 ley --limit 30
 ley scopes
-ley --scope-prefix checkout --json
+ley --scope-prefix checkout
 ley --property request.id=req-123 --json
 ```
 
-Agents should use JSON output for automation instead of inspecting SQLite files
-directly. Store schema and file layout are internal implementation details.
+Agents can start with compact output when reading logs as context. Switch to
+JSON for automation or exact fields instead of inspecting SQLite files directly.
+Store schema and file layout are internal implementation details.
 
 ## Documentation
 

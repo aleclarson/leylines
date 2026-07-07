@@ -16,9 +16,16 @@ ley --text payment --include-debug
 Default output is compact and chronological. `debug` entries are hidden unless
 requested with `--include-debug`, `--level debug`, or an explicit level list.
 
-## Machine-Readable Output
+## Choosing Output Format
 
-Agents and scripts should use `--json`:
+Use compact default output when a human or agent is reading results as context:
+
+```sh
+ley --scope-prefix checkout --property request.id=req-123
+```
+
+Use `--json` when output will be parsed, stored, compared, or when exact entry
+fields such as ids, sequences, and metadata are needed:
 
 ```sh
 ley --scope-prefix checkout --property request.id=req-123 --json
@@ -42,8 +49,8 @@ relevant events.
 Structured properties are the main way to correlate entries:
 
 ```sh
-ley --property request.id=req-123 --json
-ley --property cartId=cart-1 --json
+ley --property request.id=req-123
+ley --property cartId=cart-1
 ```
 
 Property paths may use dotted notation for nested values.
@@ -62,7 +69,7 @@ ley expand '<entry-id>:properties.payload' --json
 ```sh
 ley --limit 30
 ley scopes
-ley --scope-prefix checkout --json
+ley --scope-prefix checkout
 ley --property request.id=req-123 --json
 ley expand '<collapsed-value-id>' --json
 ```
