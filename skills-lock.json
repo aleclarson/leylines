@@ -6,6 +6,11 @@
       "sourceType": "local",
       "computedHash": "a5ef801893c5aefe5ab2b89d13ab81e994719ac9c77889673d11c78d810a5724"
     },
+    "lildocs": {
+      "source": "/Users/alec/dev/oss/lildocs",
+      "sourceType": "local",
+      "computedHash": "070c87cdf1de9e384558bb5e7128fa3e7cd3ed086a02030f66aee3068ff352dc"
+    },
     "radashi": {
       "source": "radashi-org/radashi",
       "sourceType": "github",
