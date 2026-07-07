@@ -55,11 +55,12 @@ describe('tauri logger integration', () => {
       captureRejections: false,
     })
 
-    const detach = await attachTauriLogger({
+    const detach = attachTauriLogger({
       scope: 'native',
       metadata: { windowLabel: 'main' },
       properties: { process: 'rust' },
     })
+    await Promise.resolve()
 
     expect(tauriLog.attachLogger).toHaveBeenCalledTimes(1)
     tauriLog.listeners[0]?.({
@@ -102,5 +103,27 @@ describe('tauri logger integration', () => {
         },
       }),
     ])
+  })
+
+  it('cleans up when aborted before Tauri returns its unlisten function', async () => {
+    let resolveAttach!: (detach: () => void) => void
+    tauriLog.attachLogger.mockImplementationOnce(
+      (listener) =>
+        new Promise((resolve) => {
+          tauriLog.listeners.push(listener)
+          resolveAttach = resolve
+        }),
+    )
+
+    const detach = attachTauriLogger()
+    detach()
+    expect(tauriLog.listeners).toHaveLength(1)
+
+    resolveAttach(() => {
+      tauriLog.listeners = []
+    })
+    await Promise.resolve()
+
+    expect(tauriLog.listeners).toEqual([])
   })
 })

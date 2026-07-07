@@ -15,5 +15,5 @@ export type DetachTauriLogger = () => void;
 // #endregion
 
 // #region Functions
-export declare function attachTauriLogger(_?: TauriLoggerOptions): Promise<DetachTauriLogger>;
+export declare function attachTauriLogger(_?: TauriLoggerOptions): DetachTauriLogger;
 // #endregion

@@ -127,7 +127,7 @@ pnpm add @tauri-apps/plugin-log
 ```ts
 import { attachTauriLogger } from 'leylines/tauri'
 
-const detachTauriLogs = await attachTauriLogger()
+const detachTauriLogs = attachTauriLogger()
 ```
 
 Forwarded Tauri records use the `browser.tauri` scope by default. Tauri `trace`

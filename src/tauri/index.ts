@@ -18,9 +18,8 @@ export interface TauriLoggerOptions {
 }
 
 /** Attach Tauri plugin-log forwarding to the Leylines browser logger connected by the Vite plugin. */
-export async function attachTauriLogger(
-  options: TauriLoggerOptions = {},
-): Promise<DetachTauriLogger> {
+export function attachTauriLogger(options: TauriLoggerOptions = {}): DetachTauriLogger {
+  const controller = new AbortController()
   const target = (options.logger ?? logger).child({
     scope: options.scope ?? 'tauri',
     metadata: {
@@ -30,13 +29,28 @@ export async function attachTauriLogger(
     properties: options.properties,
   })
 
-  return attachLogger((record) => {
-    try {
-      target.write(toLeylinesLevel(record.level), record.message)
-    } catch {
-      // Forwarding must not interfere with Tauri's own log delivery.
+  void attachLogger((record) => {
+    if (!controller.signal.aborted) {
+      try {
+        target.write(toLeylinesLevel(record.level), record.message)
+      } catch {
+        // Forwarding must not interfere with Tauri's own log delivery.
+      }
     }
   })
+    .then((detach) => {
+      if (controller.signal.aborted) {
+        detach()
+        return
+      }
+
+      controller.signal.addEventListener('abort', () => detach(), { once: true })
+    })
+    .catch(() => {})
+
+  return () => {
+    controller.abort()
+  }
 }
 
 function toLeylinesLevel(level: TauriPluginLogLevel): LogLevel {

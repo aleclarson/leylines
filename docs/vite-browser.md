@@ -100,7 +100,7 @@ Then attach forwarding from app startup code:
 ```ts
 import { attachTauriLogger } from 'leylines/tauri'
 
-const detachTauriLogs = await attachTauriLogger({
+const detachTauriLogs = attachTauriLogger({
   scope: 'tauri',
   metadata: { windowLabel: 'main' },
 })
