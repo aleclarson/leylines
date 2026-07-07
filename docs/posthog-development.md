@@ -65,6 +65,24 @@ Each captured PostHog event becomes a Leylines entry:
 
 Redaction runs through the normal Leylines store path before persistence.
 
+```json
+{
+  "scope": "posthog",
+  "message": "signup_clicked",
+  "metadata": {
+    "source": "posthog",
+    "browserUrl": "http://localhost/signup"
+  },
+  "properties": {
+    "event": "signup_clicked",
+    "distinctId": "user-1",
+    "properties": {
+      "plan": "pro"
+    }
+  }
+}
+```
+
 ## Inspect Product Events
 
 ```sh

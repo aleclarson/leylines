@@ -33,6 +33,13 @@ In serve mode, the plugin:
 Production build capture is disabled by default. Use `production: true` only
 when production browser capture is intentional.
 
+```ts
+leylines({
+  production: true,
+  captureConsole: ['error'],
+})
+```
+
 ## Write Browser Entries
 
 ```ts
@@ -85,6 +92,13 @@ sent to Leylines with `properties.console: true`.
 `captureErrors` records uncaught browser errors. `captureRejections` records
 unhandled promise rejections. Both default to `true` for the injected browser
 logger.
+
+```ts
+leylines({
+  captureErrors: true,
+  captureRejections: true,
+})
+```
 
 ## Inspect Browser Logs
 

@@ -11,6 +11,16 @@ redaction, query behavior, collapsed values, and tail subscriptions.
 Users should interact with stores through the Node API, Vite plugin, or CLI.
 The database schema and file layout are internal details.
 
+```ts
+import { openScopedLogs } from 'leylines'
+
+const logs = openScopedLogs({
+  path: '.leylines/logs.sqlite',
+})
+
+logs.close()
+```
+
 ## Entry
 
 An entry is immutable after it is written. It contains:
@@ -26,6 +36,16 @@ An entry is immutable after it is written. It contains:
 - `error`: optional normalized error details.
 
 Prefer short messages and put correlation values in `properties`.
+
+```json
+{
+  "level": "info",
+  "scope": "checkout.cart",
+  "message": "item added",
+  "metadata": { "runtime": "node" },
+  "properties": { "cartId": "cart-1", "sku": "sku-123" }
+}
+```
 
 ## Scope
 
@@ -67,6 +87,19 @@ Examples of properties:
 - `operation`
 - `attempt`
 
+```ts
+logger.info('request finished', {
+  metadata: {
+    runtime: 'node',
+    pid: process.pid,
+  },
+  properties: {
+    request: { id: 'req-123' },
+    operation: 'checkout.submit',
+  },
+})
+```
+
 ## Debug Entries
 
 `debug` entries are hidden from default queries and CLI output. Request them
@@ -74,6 +107,17 @@ explicitly with `includeDebug`, `levels: ['debug']`, or `--include-debug`.
 
 This keeps routine investigation output compact while preserving debug detail
 for focused queries.
+
+```ts
+logger.debug('payment gateway response', {
+  properties: { request: { id: 'req-123' } },
+})
+
+const entries = logs.query({
+  scopePrefix: 'checkout',
+  includeDebug: true,
+}).entries
+```
 
 ## Redaction
 
@@ -83,6 +127,25 @@ rules.
 
 Redaction preserves diagnostic shape. An entry can still show that a token-like
 field existed without storing its raw value.
+
+```ts
+const logs = openScopedLogs({
+  redaction: {
+    rules: [{ name: /apiToken/i }],
+  },
+})
+const logger = logs.logger('checkout')
+
+logger.info('provider configured', {
+  properties: {
+    provider: 'stripe',
+    apiToken: 'sk_test_secret',
+  },
+})
+
+const entry = logs.query({ scopePrefix: 'checkout' }).entries[0]
+console.log(entry.properties.apiToken) // [REDACTED]
+```
 
 ## Retention
 
@@ -105,3 +168,12 @@ id later. This keeps timelines compact while retaining full diagnostic payloads
 when needed.
 
 Use `logs.expand(id)` or `ley expand <id>`.
+
+```ts
+const page = logs.query({ scopePrefix: 'worker' })
+const entry = page.entries[0]
+
+// Query results keep the entry id and collapsed path separate.
+const payload = logs.expand(`${entry.id}:properties.payload`)
+console.log(payload?.value)
+```
