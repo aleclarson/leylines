@@ -6,4 +6,3 @@ minimumReleaseAgeExclude:
   - exports-md
 allowBuilds:
   esbuild: true
-  ttf2woff2: set this to true or false
