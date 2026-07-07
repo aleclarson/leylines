@@ -1,5 +1,8 @@
 # Node API
 
+> Use the high-level Node API when code needs to write, query, tail, and expand
+> a local Leylines store directly.
+
 Use the Node API when application code, scripts, services, or tests need to
 write and query a local Leylines store directly.
 
@@ -11,12 +14,19 @@ import { openScopedLogs } from 'leylines'
 const logs = openScopedLogs()
 ```
 
-Leylines writes to the inferred local store.
+Leylines writes to the inferred local store at `.leylines/logs.sqlite` under the
+current working directory.
 
 Close the handle when the process no longer needs it:
 
 ```ts
 logs.close()
+```
+
+Use an explicit path when a script or test needs an isolated store:
+
+```ts
+const logs = openScopedLogs({ path: '.leylines/test.sqlite' })
 ```
 
 ## Write Scoped Entries
@@ -41,6 +51,9 @@ logger.error('job failed', {
 Logger properties and metadata are inherited by every entry. Per-entry values
 merge over inherited values.
 
+The second entry above has `queue=email`, `jobId=job-1`, and normalized error
+details.
+
 ## Use Child Loggers
 
 Child loggers keep related workflow context close to the code that emits it:
@@ -58,6 +71,12 @@ payment.warn('authorization retrying', {
 ```
 
 The entry scope is `checkout.payment`.
+
+If the child scope is already fully qualified, Leylines keeps it stable:
+
+```ts
+root.child({ scope: 'checkout.payment' }).info('captured')
+```
 
 ## Query Entries
 
@@ -77,17 +96,27 @@ for (const entry of page.entries) {
 Queries are chronological and deterministic. Use `before` and `after` cursors
 for pagination.
 
+Default queries return up to 50 entries. `limit` is clamped between 1 and 1000.
+
 ## Tail New Entries
 
 ```ts
 const controller = new AbortController()
 
-for await (const entry of logs.tail({ scopePrefix: 'worker' }, { signal: controller.signal })) {
+for await (
+  const entry of logs.tail({ scopePrefix: 'worker' }, { signal: controller.signal })
+) {
   console.log(entry.message)
 }
 ```
 
 `tail` only yields entries appended after subscription.
+
+Abort the signal when the watcher should stop:
+
+```ts
+controller.abort()
+```
 
 ## Expand Collapsed Values
 
@@ -97,3 +126,6 @@ Retrieve the full value with:
 ```ts
 const value = logs.expand('<entry-id>:properties.payload')
 ```
+
+`expand` returns `undefined` when the collapsed value is no longer present, for
+example after retention has removed the owning entry.

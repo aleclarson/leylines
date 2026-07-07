@@ -1,5 +1,8 @@
 # PostHog Development Capture
 
+> Redirect local PostHog browser events into Leylines during development without
+> forwarding those payloads to PostHog.
+
 Leylines can redirect local PostHog browser product analytics into the same
 development log store used by browser and Node logs. This is useful when agents
 or developers need to inspect product events without sending them to PostHog
@@ -50,6 +53,17 @@ posthog.init(projectKey, {
 Keep production PostHog configuration separate so production analytics use the
 real PostHog host.
 
+In a Vite app, gate the local host by mode and keep the production host in the
+same place as the rest of the app's environment-specific configuration:
+
+```ts
+const apiHost = import.meta.env.DEV ? '/__leylines/posthog' : productionPostHogHost
+
+posthog.init(projectKey, {
+  api_host: apiHost,
+})
+```
+
 ## Entry Mapping
 
 Each captured PostHog event becomes a Leylines entry:
@@ -57,7 +71,11 @@ Each captured PostHog event becomes a Leylines entry:
 - `scope`: configured PostHog scope, default `posthog`
 - `message`: PostHog event name
 - `metadata.source`: `posthog`
+- `metadata.posthogEndpoint`: configured local ingestion endpoint
+- `metadata.posthogRequestUrl`: request URL received by the Vite middleware
 - `metadata.browserUrl`: PostHog `$current_url` when present
+- `metadata.viteMode`: Vite mode
+- `metadata.viteCommand`: Vite command
 - `properties.event`: PostHog event name
 - `properties.distinctId`: distinct id when present
 - `properties.properties`: event properties
@@ -71,6 +89,8 @@ Redaction runs through the normal Leylines store path before persistence.
   "message": "signup_clicked",
   "metadata": {
     "source": "posthog",
+    "posthogEndpoint": "/__leylines/posthog",
+    "posthogRequestUrl": "/__leylines/posthog",
     "browserUrl": "http://localhost/signup"
   },
   "properties": {

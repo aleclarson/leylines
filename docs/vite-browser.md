@@ -1,5 +1,8 @@
 # Vite And Browser
 
+> Use the Vite integration when browser-side development events should be
+> captured in the same local store as Node and CLI entries.
+
 Use the Vite plugin to collect browser-side development logs into the same
 local store used by the Node API and CLI.
 
@@ -39,6 +42,9 @@ leylines({
   captureConsole: ['error'],
 })
 ```
+
+The default endpoint is `/__scoped_logs`, and the default browser scope is
+`browser`.
 
 ## Vite Logger Capture
 
@@ -86,6 +92,9 @@ The exported `logger` is a side-effect-free singleton. Importing it does not
 patch console methods, add event listeners, or send network requests. The Vite
 plugin connects it during page load.
 
+Before connection, logger writes are ignored. After the Vite plugin injects
+`logger.connect(...)`, browser entries are posted to the configured endpoint.
+
 ## Tauri Log Forwarding
 
 Install Tauri's log plugin in apps that should forward native-side records into
@@ -110,6 +119,12 @@ The Vite plugin connects `leylines/browser` before application modules run, so
 Tauri records sent through `attachTauriLogger` are posted to the same
 `/__scoped_logs` endpoint as browser entries. The default scope is
 `browser.tauri`, and each entry includes `metadata.source: 'tauri.log'`.
+
+Call the returned function when forwarding should stop:
+
+```ts
+detachTauriLogs()
+```
 
 ## Manual Connection
 
@@ -161,4 +176,10 @@ leylines({
 ```sh
 ley --scope-prefix browser
 ley --scope-prefix browser --json
+```
+
+Use the Vite logger scope separately when you enabled Vite logger capture:
+
+```sh
+ley --scope-prefix dev.vite --min-level warn --json
 ```

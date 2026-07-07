@@ -1,5 +1,8 @@
 # Concepts
 
+> Use these concepts to choose stable scopes, decide what belongs in properties
+> versus metadata, and understand what Leylines stores before you query it.
+
 Leylines models local runtime activity as scoped, structured log entries in a
 durable store.
 
@@ -20,6 +23,10 @@ const logs = openScopedLogs({
 
 logs.close()
 ```
+
+When `path` is omitted, Leylines uses `.leylines/logs.sqlite` under the current
+working directory and keeps that default folder out of Git through the local
+exclude file when possible.
 
 ## Entry
 
@@ -73,6 +80,14 @@ cartLogger.info('opened')
 
 The child entry scope is `checkout.cart`.
 
+Use `scopePrefix` when a workflow owns nested scopes:
+
+```ts
+const page = logs.query({ scopePrefix: 'checkout' })
+```
+
+This matches both `checkout` and dotted children such as `checkout.cart`.
+
 ## Metadata Versus Properties
 
 Use `metadata` for runtime context such as browser URL, Vite mode, process id,
@@ -98,6 +113,13 @@ logger.info('request finished', {
     operation: 'checkout.submit',
   },
 })
+```
+
+Query filters only target `properties`, so a value such as `request.id` belongs
+there when an investigation will pivot on it:
+
+```sh
+ley --property request.id=req-123 --json
 ```
 
 ## Debug Entries
@@ -161,6 +183,9 @@ openScopedLogs({
 })
 ```
 
+When both limits are configured, entries must survive both checks: old entries
+are removed by age, and only the newest `maxEntries` entries remain.
+
 ## Collapsed Values
 
 Large JSON values are collapsed out of default entries and can be expanded by
@@ -176,4 +201,10 @@ const entry = page.entries[0]
 // Query results keep the entry id and collapsed path separate.
 const payload = logs.expand(`${entry.id}:properties.payload`)
 console.log(payload?.value)
+```
+
+From the CLI, pass the entry id plus the collapsed path:
+
+```sh
+ley expand '<entry-id>:properties.payload' --json
 ```

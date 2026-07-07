@@ -1,24 +1,35 @@
 # Leylines Docs
 
-Start with [Getting Started](./getting-started.md) if you want to write and
-inspect your first local log entries.
+> Choose the right Leylines surface for a local logging workflow, then follow
+> the page that owns that task or concept.
 
-## Guides
+Leylines has three main entry points:
 
-- [Getting Started](./getting-started.md): install Leylines, write a Node entry,
-  inspect it with the CLI, and capture browser logs in Vite.
-- [Concepts](./concepts.md): understand stores, entries, scopes, metadata,
-  properties, redaction, retention, and collapsed values.
-- [Node API](./node-api.md): use `openScopedLogs`, scoped loggers, queries,
-  tails, expansion, and low-level store access.
-- [Vite And Browser](./vite-browser.md): capture browser logs during Vite serve
-  mode and use the browser singleton logger.
-- [CLI And Agent Workflows](./cli-agent-workflows.md): investigate logs through
-  compact human output and stable JSON output.
-- [PostHog Development Capture](./integrations/posthog-development.md): redirect local
-  PostHog browser events into Leylines without forwarding them.
+- the Node API, for writing and querying local stores from application code
+- the `ley` CLI, for inspecting the same stores from a terminal or agent
+- the Vite/browser integration, for collecting browser-side development events
+
+Start with [Getting Started](./getting-started.md) when you want to write and
+inspect the first local entries end to end.
+
+## Choose A Guide
+
+| Page | Use It When | Result |
+| --- | --- | --- |
+| [Getting Started](./getting-started.md) | You want the first Node, CLI, and Vite flow. | A local store contains entries you can query with `ley`. |
+| [Concepts](./concepts.md) | You need the data model before choosing scopes or properties. | You know what stores, entries, scopes, metadata, properties, redaction, retention, and collapsed values mean. |
+| [Node API](./node-api.md) | Application code, scripts, services, or tests need direct store access. | Code writes scoped entries, queries them, tails new entries, and expands large values. |
+| [Vite And Browser](./vite-browser.md) | Browser development events should land in the local Leylines store. | Vite serve mode captures browser logs without changing production builds by default. |
+| [CLI And Agent Workflows](./cli-agent-workflows.md) | A human or coding agent needs to investigate an existing store. | The investigation moves from recent entries to scopes, properties, JSON output, and expansion. |
+| [PostHog Development Capture](./integrations/posthog-development.md) | Local PostHog browser events should be inspectable without being forwarded. | Product events are written as Leylines entries under the configured PostHog scope. |
 
 ## Source Of Truth
 
 Public TSDoc owns exact API behavior. These guides own usage flow, concepts,
 and API-selection guidance. Generated declarations own exact signatures.
+
+The GitHub Pages workflow builds this folder with lildocs:
+
+```sh
+pnpm exec lildocs deploy ./docs --out dist --base /leylines/
+```

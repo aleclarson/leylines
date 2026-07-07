@@ -1,9 +1,19 @@
 # CLI And Agent Workflows
 
+> Investigate a local Leylines store from the terminal, using compact output for
+> reading and JSON output for automation or exact fields.
+
 Use the CLI when a human or coding agent needs to inspect a local Leylines
 store without writing application code.
 
 When no subcommand is provided, `ley` runs the recent timeline view.
+
+Print the active inferred store path before investigating an unfamiliar
+workspace:
+
+```sh
+ley path
+```
 
 ## Recent Timeline
 
@@ -15,6 +25,9 @@ ley --text payment --include-debug
 
 Default output is compact and chronological. `debug` entries are hidden unless
 requested with `--include-debug`, `--level debug`, or an explicit level list.
+
+The default recent timeline returns at most 50 entries when `--limit` is not
+provided.
 
 ## Choosing Output Format
 
@@ -33,6 +46,14 @@ ley --scope-prefix checkout --property request.id=req-123 --json
 
 JSON output is the stable automation contract. Human-readable output may evolve
 to stay compact.
+
+JSON recent output has an `entries` array:
+
+```json
+{
+  "entries": []
+}
+```
 
 ## Discover Scopes
 
@@ -54,6 +75,16 @@ ley --property cartId=cart-1
 ```
 
 Property paths may use dotted notation for nested values.
+
+Property values are parsed as JSON when possible, so these filters are
+different:
+
+```sh
+ley --property attempt=2
+ley --property attempt='"2"'
+```
+
+The first matches the number `2`; the second matches the string `"2"`.
 
 ## Expand Large Values
 
