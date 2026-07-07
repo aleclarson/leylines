@@ -8,11 +8,11 @@ local store used by the Node API and CLI.
 ```ts
 // vite.config.ts
 import { defineConfig } from 'vite'
-import { scopedLogsVitePlugin } from 'leylines/vite'
+import { leylines } from 'leylines/vite'
 
 export default defineConfig({
   plugins: [
-    scopedLogsVitePlugin({
+    leylines({
       endpoint: '/__scoped_logs',
       scope: 'browser',
       captureConsole: ['warn', 'error'],
@@ -72,7 +72,7 @@ console or error capture hooks.
 `captureConsole` accepts `true` or selected levels:
 
 ```ts
-scopedLogsVitePlugin({
+leylines({
   captureConsole: ['warn', 'error'],
 })
 ```

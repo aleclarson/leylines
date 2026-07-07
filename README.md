@@ -82,11 +82,11 @@ contract and returns stable JSON fields.
 ```ts
 // vite.config.ts
 import { defineConfig } from 'vite'
-import { scopedLogsVitePlugin } from 'leylines/vite'
+import { leylines } from 'leylines/vite'
 
 export default defineConfig({
   plugins: [
-    scopedLogsVitePlugin({
+    leylines({
       scope: 'browser',
       captureConsole: ['warn', 'error'],
       captureErrors: true,
@@ -104,7 +104,7 @@ PostHog product metrics can be redirected into the same local store during
 development:
 
 ```ts
-scopedLogsVitePlugin({
+leylines({
   posthog: true,
 })
 

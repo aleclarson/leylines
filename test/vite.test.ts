@@ -4,9 +4,9 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { logger } from '../src/browser/index.js'
 import { openScopedLogs } from '../src/index.js'
-import { scopedLogsVitePlugin } from '../src/vite/index.js'
+import { leylines } from '../src/vite/index.js'
 
-describe('scopedLogsVitePlugin', () => {
+describe('leylines', () => {
   let dir: string
   let storePath: string
 
@@ -20,7 +20,7 @@ describe('scopedLogsVitePlugin', () => {
   })
 
   it('registers a local ingestion endpoint that writes redacted browser entries', async () => {
-    const plugin = scopedLogsVitePlugin({
+    const plugin = leylines({
       path: storePath,
       endpoint: '/logs',
       metadata: { viteMode: 'override' },
@@ -55,7 +55,7 @@ describe('scopedLogsVitePlugin', () => {
   })
 
   it('injects browser logger setup for serve mode and stays quiet for build mode by default', () => {
-    const serve = scopedLogsVitePlugin({
+    const serve = leylines({
       endpoint: '/logs',
       scope: 'app.browser',
       captureConsole: ['error'],
@@ -69,7 +69,7 @@ describe('scopedLogsVitePlugin', () => {
       '"scope":"app.browser"',
     )
 
-    const build = scopedLogsVitePlugin()
+    const build = leylines()
     build.configResolved({ mode: 'production', command: 'build' })
     expect(build.transformIndexHtml('<html><head></head><body></body></html>')).toBe(
       '<html><head></head><body></body></html>',
@@ -77,7 +77,7 @@ describe('scopedLogsVitePlugin', () => {
   })
 
   it('redirects PostHog capture payloads into the local log store', async () => {
-    const plugin = scopedLogsVitePlugin({
+    const plugin = leylines({
       path: storePath,
       posthog: true,
     })
@@ -138,7 +138,7 @@ describe('scopedLogsVitePlugin', () => {
   })
 
   it('redirects PostHog batch payloads with custom endpoint and scope', async () => {
-    const plugin = scopedLogsVitePlugin({
+    const plugin = leylines({
       path: storePath,
       posthog: {
         endpoint: '/analytics',

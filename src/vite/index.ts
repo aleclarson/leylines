@@ -9,7 +9,7 @@ import {
 export type { PostHogViteOptions } from './posthog.js'
 
 /** Options for the Leylines Vite development plugin. */
-export interface ScopedLogsVitePluginOptions extends OpenScopedLogsOptions {
+export interface LeylinesVitePluginOptions extends OpenScopedLogsOptions {
   /** Browser log ingestion endpoint injected into the page. Defaults to `/__scoped_logs`. */
   endpoint?: string
   /** Root browser logger scope. Defaults to `browser`. */
@@ -50,7 +50,7 @@ interface ResponseLike {
   end(body?: string): void
 }
 
-/** Minimal Vite plugin shape returned by `scopedLogsVitePlugin`. */
+/** Minimal Vite plugin shape returned by `leylines`. */
 export interface VitePluginLike {
   /** Vite plugin name. */
   name: string
@@ -67,7 +67,7 @@ export interface VitePluginLike {
 }
 
 /** Create a Vite plugin that captures browser logs into a local Leylines store. */
-export function scopedLogsVitePlugin(options: ScopedLogsVitePluginOptions = {}): VitePluginLike {
+export function leylines(options: LeylinesVitePluginOptions = {}): VitePluginLike {
   const endpoint = options.endpoint ?? '/__scoped_logs'
   const scope = options.scope ?? 'browser'
   const posthog = resolvePostHogOptions(options.posthog)
@@ -140,7 +140,7 @@ export function scopedLogsVitePlugin(options: ScopedLogsVitePluginOptions = {}):
   }
 }
 
-function scriptTag(endpoint: string, scope: string, options: ScopedLogsVitePluginOptions): string {
+function scriptTag(endpoint: string, scope: string, options: LeylinesVitePluginOptions): string {
   const payload = JSON.stringify({
     endpoint,
     scope,

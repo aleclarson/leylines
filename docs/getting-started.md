@@ -57,11 +57,11 @@ Use `--json` when another tool or agent will consume the output.
 ```ts
 // vite.config.ts
 import { defineConfig } from 'vite'
-import { scopedLogsVitePlugin } from 'leylines/vite'
+import { leylines } from 'leylines/vite'
 
 export default defineConfig({
   plugins: [
-    scopedLogsVitePlugin({
+    leylines({
       scope: 'browser',
       captureConsole: ['warn', 'error'],
     }),

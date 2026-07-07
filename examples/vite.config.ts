@@ -1,9 +1,9 @@
 import { defineConfig } from 'vite'
-import { scopedLogsVitePlugin } from 'leylines/vite'
+import { leylines } from 'leylines/vite'
 
 export default defineConfig({
   plugins: [
-    scopedLogsVitePlugin({
+    leylines({
       path: '.leylines/logs.sqlite',
       scope: 'browser',
       captureConsole: ['warn', 'error'],
