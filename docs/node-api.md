@@ -3,9 +3,6 @@
 > Use the high-level Node API when code needs to write, query, tail, and expand
 > a local Leylines store directly.
 
-Use the Node API when application code, scripts, services, or tests need to
-write and query a local Leylines store directly.
-
 ## Open A Store
 
 ```ts

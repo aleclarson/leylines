@@ -3,9 +3,6 @@
 > Investigate a local Leylines store from the terminal, using compact output for
 > reading and JSON output for automation or exact fields.
 
-Use the CLI when a human or coding agent needs to inspect a local Leylines
-store without writing application code.
-
 When no subcommand is provided, `ley` runs the recent timeline view.
 
 Print the active inferred store path before investigating an unfamiliar

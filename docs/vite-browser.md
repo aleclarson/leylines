@@ -3,9 +3,6 @@
 > Use the Vite integration when browser-side development events should be
 > captured in the same local store as Node and CLI entries.
 
-Use the Vite plugin to collect browser-side development logs into the same
-local store used by the Node API and CLI.
-
 ## Configure The Plugin
 
 ```ts
