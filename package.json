@@ -67,7 +67,7 @@
   "devDependencies": {
     "@tauri-apps/plugin-log": "^2.8.0",
     "@types/node": "^26.0.1",
-    "lildocs": "^0.1.10",
+    "lildocs": "^0.1.13",
     "oxfmt": "^0.56.0",
     "oxlint": "^1.71.0",
     "radashi": "^12.9.1",
