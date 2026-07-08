@@ -16,7 +16,7 @@ import type {
   RetentionOptions,
 } from '../core/types.js'
 
-const RETENTION_WRITE_INTERVAL = 250
+const RETENTION_WRITE_INTERVAL = 2_500
 
 /** Options for opening the low-level durable log store. */
 export interface OpenLogStoreOptions {

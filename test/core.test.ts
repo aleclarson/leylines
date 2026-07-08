@@ -126,7 +126,7 @@ describe('LogStore', () => {
 
   it('applies retention periodically during long-running writes', () => {
     const store = openLogStore({ path: join(dir, 'logs.sqlite'), retention: { maxEntries: 2 } })
-    for (let index = 0; index < 250; index += 1) {
+    for (let index = 0; index < 2_500; index += 1) {
       store.write({
         id: `entry-${index}`,
         timestamp: new Date(Date.UTC(2026, 0, 1, 0, 0, index)).toISOString(),
@@ -136,7 +136,7 @@ describe('LogStore', () => {
       })
     }
 
-    expect(store.query().entries.map(entry => entry.id)).toEqual(['entry-248', 'entry-249'])
+    expect(store.query().entries.map(entry => entry.id)).toEqual(['entry-2498', 'entry-2499'])
     store.close()
   })
 
