@@ -1,3 +1,4 @@
+import { gunzipSync } from 'node:zlib'
 import { toJsonObject, toJsonValue } from '../core/json.js'
 import type { JsonObject, JsonValue, LogEntryInput } from '../core/types.js'
 
@@ -81,7 +82,7 @@ export function registerPostHogMiddleware(options: {
 
     readBody(req)
       .then((body) => {
-        for (const entry of posthogEntries(parsePostHogBody(body), {
+        for (const entry of posthogEntries(parsePostHogBody(body, req.url), {
           scope: options.posthog.scope,
           endpoint: options.posthog.endpoint,
           requestUrl: req.url,
@@ -102,11 +103,12 @@ export function registerPostHogMiddleware(options: {
   })
 }
 
-function parsePostHogBody(body: string): unknown {
+function parsePostHogBody(body: Buffer, requestUrl?: string): unknown {
+  const text = posthogBodyText(body, requestUrl)
   try {
-    return JSON.parse(body)
+    return JSON.parse(text)
   } catch (jsonError) {
-    const params = new URLSearchParams(body)
+    const params = new URLSearchParams(text)
     const encodedPayload = params.get('data') ?? params.get('batch')
     if (encodedPayload) {
       return JSON.parse(encodedPayload)
@@ -117,6 +119,16 @@ function parsePostHogBody(body: string): unknown {
     }
     throw jsonError
   }
+}
+
+function posthogBodyText(body: Buffer, requestUrl?: string): string {
+  const compression = requestUrl
+    ? new URL(requestUrl, 'http://localhost').searchParams.get('compression')
+    : null
+  if (compression === 'gzip-js' || isGzipBody(body)) {
+    return gunzipSync(body).toString('utf8')
+  }
+  return body.toString('utf8')
 }
 
 function posthogEntries(payload: unknown, context: PostHogEntryContext): LogEntryInput[] {
@@ -181,15 +193,19 @@ function jsonProperty(object: JsonObject, key: string): JsonValue | undefined {
   return value === undefined ? undefined : toJsonValue(value)
 }
 
-function readBody(req: RequestLike): Promise<string> {
+function readBody(req: RequestLike): Promise<Buffer> {
   return new Promise((resolve, reject) => {
-    const chunks: string[] = []
+    const chunks: Buffer[] = []
     req.on('data', (chunk) => {
-      chunks.push(String(chunk))
+      chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk))
     })
     req.on('end', () => {
-      resolve(chunks.join(''))
+      resolve(Buffer.concat(chunks))
     })
     req.on('error', reject)
   })
+}
+
+function isGzipBody(body: Buffer): boolean {
+  return body.length >= 2 && body[0] === 0x1f && body[1] === 0x8b
 }

@@ -2,6 +2,7 @@ import { EventEmitter } from 'node:events'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { gzipSync } from 'node:zlib'
 import { logger } from '../src/browser/index.js'
 import { openScopedLogs } from '../src/index.js'
 import { leylines } from '../src/vite/index.js'
@@ -230,6 +231,52 @@ describe('leylines', () => {
         }),
       }),
     ])
+    logs.close()
+  })
+
+  it('redirects compressed PostHog event endpoint payloads', async () => {
+    const plugin = leylines({
+      path: storePath,
+      posthog: true,
+    })
+    const server = fakeServer()
+    plugin.configureServer(server)
+
+    await server.postBody(
+      '/__leylines/posthog/e/?_=1783544598932&ver=1.395.0&compression=gzip-js',
+      gzipSync(
+        JSON.stringify({
+          event: '$pageview',
+          distinct_id: 'user-1',
+          properties: {
+            $current_url: 'http://localhost:5173/dashboard',
+            token: 'secret',
+          },
+        }),
+      ),
+    )
+    plugin.closeBundle()
+
+    const logs = openScopedLogs({ path: storePath })
+    const entries = logs.query({ scope: 'posthog', includeDebug: true }).entries
+    expect(entries).toHaveLength(1)
+    expect(entries[0]).toMatchObject({
+      scope: 'posthog',
+      message: '$pageview',
+      metadata: {
+        source: 'posthog',
+        posthogEndpoint: '/__leylines/posthog',
+        posthogRequestUrl: '/e/?_=1783544598932&ver=1.395.0&compression=gzip-js',
+        browserUrl: 'http://localhost:5173/dashboard',
+      },
+      properties: {
+        event: '$pageview',
+        distinctId: 'user-1',
+        properties: {
+          token: '[REDACTED]',
+        },
+      },
+    })
     logs.close()
   })
 
@@ -488,13 +535,17 @@ function fakeServer() {
     post(path: string, body: unknown) {
       return this.postBody(path, JSON.stringify(body))
     },
-    postBody(path: string, body: string) {
-      const handler = handlers.get(path)
+    postBody(path: string, body: string | Buffer) {
+      const [mountPath, handler] =
+        [...handlers].find(([mountPath]) => {
+          return path === mountPath || path.startsWith(`${mountPath}/`)
+        }) ?? []
       if (!handler) {
         throw new Error(`No handler for ${path}`)
       }
 
-      const req = new FakeRequest('POST', path)
+      const requestUrl = mountPath && path !== mountPath ? path.slice(mountPath.length) : path
+      const req = new FakeRequest('POST', requestUrl)
       const res = new FakeResponse()
       handler(req, res, () => {})
       req.emit('data', body)
