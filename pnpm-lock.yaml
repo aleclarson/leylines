@@ -19,8 +19,8 @@ importers:
         specifier: ^26.0.1
         version: 26.0.1
       lildocs:
-        specifier: ^0.1.7
-        version: 0.1.7
+        specifier: ^0.1.10
+        version: 0.1.10
       oxfmt:
         specifier: ^0.56.0
         version: 0.56.0
@@ -1003,8 +1003,8 @@ packages:
     resolution: {integrity: sha512-NXYBzinNrblfraPGyrbPoD19C1h9lfI/1mzgWYvXUTe414Gz/X1FD2XBZSZM7rRTrMA8JL3OtAaGifrIKhQ5yQ==}
     engines: {node: '>= 12.0.0'}
 
-  lildocs@0.1.7:
-    resolution: {integrity: sha512-RCJAa0JZfRCWOOkRICAQlgIHtue8H1yjwvWCssUYIeivdksIvnKSYL8nJV6y+qwwjPxPgdIHbzZJ1ZWHA3H5ZQ==}
+  lildocs@0.1.10:
+    resolution: {integrity: sha512-nQT5W7ZoB/NFQjAM3ydCPOaNrEdVW+de34u/b2S5V6zHx5NMRphw+9uR9VDeG0lhmw2V6HE3X6yMJGBwthqJMw==}
     engines: {node: ^22.18.0 || >=24.3.0}
     hasBin: true
 
@@ -2132,7 +2132,7 @@ snapshots:
       lightningcss-win32-arm64-msvc: 1.32.0
       lightningcss-win32-x64-msvc: 1.32.0
 
-  lildocs@0.1.7:
+  lildocs@0.1.10:
     dependencies:
       '@goddard-ai/ui-primitives': 0.1.2(preact@10.29.3)
       '@preact/signals': 2.9.2(preact@10.29.3)
