@@ -78,28 +78,24 @@ describe('tauri logger integration', () => {
     expect(calls.map((call) => call.body)).toEqual([
       expect.objectContaining({
         level: 'debug',
-        scope: 'browser.native',
+        scope: 'native',
         message: 'layout pass started',
-        metadata: expect.objectContaining({
-          sessionId: 's1',
-          windowLabel: 'main',
-          source: 'tauri.log',
-        }),
+        metadata: expect.objectContaining({ sessionId: 's1' }),
         properties: {
           process: 'rust',
+          windowLabel: 'main',
+          source: 'tauri.log',
         },
       }),
       expect.objectContaining({
         level: 'error',
-        scope: 'browser.native',
+        scope: 'native',
         message: 'command failed',
-        metadata: expect.objectContaining({
-          sessionId: 's1',
-          windowLabel: 'main',
-          source: 'tauri.log',
-        }),
+        metadata: expect.objectContaining({ sessionId: 's1' }),
         properties: {
           process: 'rust',
+          windowLabel: 'main',
+          source: 'tauri.log',
         },
       }),
     ])

@@ -33,6 +33,8 @@ export interface LeylinesVitePluginOptions extends OpenScopedLogsOptions {
   captureRejections?: boolean
   /** Enable the plugin during production builds. Development serve mode is the default. */
   production?: boolean
+  /** Remove browser logger calls from production builds and replace remaining logger references with no-ops. */
+  stripProduction?: boolean
   /** Metadata merged into entries written by Vite ingestion middleware. */
   metadata?: JsonObject
   /** Redirect PostHog browser product analytics into the local Leylines store. */
@@ -104,6 +106,8 @@ export interface VitePluginLike {
   configureServer(server: ViteServerLike): void
   /** Inject browser logger setup into HTML. */
   transformIndexHtml(html: string): string
+  /** Rewrite application modules before Vite compiles them. */
+  transform(code: string, id?: string): string | null
   /** Close any store resources opened by the plugin. */
   closeBundle(): void
 }
@@ -204,11 +208,17 @@ export function leylines(options: LeylinesVitePluginOptions = {}): VitePluginLik
       }
     },
     transformIndexHtml(html) {
-      if (!options.production && command === 'build') {
+      if ((!options.production || options.stripProduction) && command === 'build') {
         return html
       }
 
       return html.replace(/<\/head>/i, `${scriptTag(endpoint, scope, options)}</head>`)
+    },
+    transform(code, id) {
+      if (!options.stripProduction || command !== 'build') {
+        return null
+      }
+      return stripBrowserLogger(code, id)
     },
     closeBundle() {
       restoreViteLogger?.()
@@ -230,6 +240,244 @@ function scriptTag(endpoint: string, scope: string, options: LeylinesVitePluginO
   })
 
   return `<script type="module">import{logger}from"leylines/browser";logger.connect(${payload});globalThis.__leylines=logger;</script>`
+}
+
+const browserLoggerImportPattern =
+  /import\s+(type\s+)?\{([^}]*)\}\s+from\s+(['"])leylines\/browser\3\s*;?/g
+const strippedBrowserLoggerMethods = new Set(['connect', 'debug', 'info', 'warn', 'error', 'write'])
+
+function stripBrowserLogger(code: string, id: string | undefined): string | null {
+  if (id && id.includes('/node_modules/')) {
+    return null
+  }
+
+  const importResult = stripBrowserLoggerImports(code)
+  if (!importResult) {
+    return null
+  }
+
+  let transformed = importResult.code
+  for (const localName of importResult.localNames) {
+    transformed = stripStandaloneLoggerCalls(transformed, localName)
+  }
+
+  const remainingReferences = importResult.localNames.filter((localName) =>
+    containsIdentifier(transformed, localName),
+  )
+  if (remainingReferences.length) {
+    transformed = `${noopLoggerDeclaration(remainingReferences)}\n${transformed}`
+  }
+
+  return transformed === code ? null : transformed
+}
+
+function stripBrowserLoggerImports(
+  code: string,
+): { code: string; localNames: string[] } | undefined {
+  const localNames: string[] = []
+  const replacements: Array<{ start: number; end: number; value: string }> = []
+
+  for (const match of code.matchAll(browserLoggerImportPattern)) {
+    const specifiers = match[2]
+      ?.split(',')
+      .map((specifier) => specifier.trim())
+      .filter(Boolean)
+    if (!specifiers?.length) {
+      continue
+    }
+
+    const keptSpecifiers: string[] = []
+    for (const specifier of specifiers) {
+      const localName = loggerImportLocalName(specifier)
+      if (localName) {
+        localNames.push(localName)
+        continue
+      }
+      keptSpecifiers.push(specifier)
+    }
+
+    if (keptSpecifiers.length === specifiers.length) {
+      continue
+    }
+
+    const start = match.index
+    const end = start + match[0].length
+    replacements.push({
+      start,
+      end,
+      value: keptSpecifiers.length
+        ? `import ${match[1] ?? ''}{ ${keptSpecifiers.join(', ')} } from 'leylines/browser';`
+        : '',
+    })
+  }
+
+  if (!localNames.length) {
+    return undefined
+  }
+
+  let transformed = code
+  for (const replacement of replacements.toReversed()) {
+    transformed =
+      transformed.slice(0, replacement.start) +
+      replacement.value +
+      transformed.slice(replacement.end)
+  }
+
+  return { code: transformed, localNames }
+}
+
+function loggerImportLocalName(specifier: string): string | undefined {
+  const match = /^logger(?:\s+as\s+([A-Za-z_$][\w$]*))?$/.exec(specifier)
+  if (!match) {
+    return undefined
+  }
+  return match[1] ?? 'logger'
+}
+
+function stripStandaloneLoggerCalls(code: string, localName: string): string {
+  let transformed = code
+  let searchStart = 0
+
+  while (searchStart < transformed.length) {
+    const callStart = transformed.indexOf(`${localName}.`, searchStart)
+    if (callStart === -1) {
+      return transformed
+    }
+    if (!hasIdentifierBoundary(transformed, callStart, localName.length)) {
+      searchStart = callStart + localName.length
+      continue
+    }
+
+    const methodStart = callStart + localName.length + 1
+    const methodEnd = readIdentifierEnd(transformed, methodStart)
+    const method = transformed.slice(methodStart, methodEnd)
+    if (!strippedBrowserLoggerMethods.has(method) || transformed[methodEnd] !== '(') {
+      searchStart = methodEnd
+      continue
+    }
+
+    const statementStart = loggerStatementStart(transformed, callStart)
+    if (statementStart === undefined) {
+      searchStart = methodEnd
+      continue
+    }
+
+    const closeParen = findMatchingParen(transformed, methodEnd)
+    if (closeParen === undefined) {
+      searchStart = methodEnd
+      continue
+    }
+
+    const statementEnd = loggerStatementEnd(transformed, closeParen + 1)
+    transformed = transformed.slice(0, statementStart) + transformed.slice(statementEnd)
+    searchStart = statementStart
+  }
+
+  return transformed
+}
+
+function loggerStatementStart(code: string, callStart: number): number | undefined {
+  let index = callStart - 1
+  while (index >= 0 && code[index] !== '\n' && /\s/.test(code[index] ?? '')) {
+    index -= 1
+  }
+  if (index < 0 || code[index] === '\n' || code[index] === ';' || code[index] === '{') {
+    return index < 0 ? 0 : index + 1
+  }
+  return undefined
+}
+
+function loggerStatementEnd(code: string, afterCall: number): number {
+  let index = afterCall
+  while (index < code.length && code[index] !== '\n' && /\s/.test(code[index] ?? '')) {
+    index += 1
+  }
+  if (code[index] === ';') {
+    index += 1
+  }
+  if (code[index] === '\n') {
+    index += 1
+  }
+  return index
+}
+
+function findMatchingParen(code: string, openParen: number): number | undefined {
+  let depth = 0
+  let quote: '"' | "'" | '`' | undefined
+  let escaped = false
+
+  for (let index = openParen; index < code.length; index += 1) {
+    const char = code[index]
+    if (quote) {
+      if (escaped) {
+        escaped = false
+      } else if (char === '\\') {
+        escaped = true
+      } else if (char === quote) {
+        quote = undefined
+      }
+      continue
+    }
+
+    if (char === '"' || char === "'" || char === '`') {
+      quote = char
+      continue
+    }
+    if (char === '(') {
+      depth += 1
+      continue
+    }
+    if (char === ')') {
+      depth -= 1
+      if (depth === 0) {
+        return index
+      }
+    }
+  }
+
+  return undefined
+}
+
+function noopLoggerDeclaration(localNames: string[]): string {
+  const aliases = localNames
+    .map((localName) => `const ${localName} = __leylinesNoopLogger`)
+    .join('\n')
+  return `const __leylinesNoopLogger = {
+  connect() { return this },
+  debug() {},
+  info() {},
+  warn() {},
+  error() {},
+  write() {},
+}
+${aliases}`
+}
+
+function containsIdentifier(code: string, identifier: string): boolean {
+  let index = code.indexOf(identifier)
+  while (index !== -1) {
+    if (hasIdentifierBoundary(code, index, identifier.length)) {
+      return true
+    }
+    index = code.indexOf(identifier, index + identifier.length)
+  }
+  return false
+}
+
+function hasIdentifierBoundary(code: string, start: number, length: number): boolean {
+  return !isIdentifierChar(code[start - 1]) && !isIdentifierChar(code[start + length])
+}
+
+function readIdentifierEnd(code: string, start: number): number {
+  let index = start
+  while (isIdentifierChar(code[index])) {
+    index += 1
+  }
+  return index
+}
+
+function isIdentifierChar(char: string | undefined): boolean {
+  return char !== undefined && /[\w$]/.test(char)
 }
 
 function readBody(req: RequestLike): Promise<string> {

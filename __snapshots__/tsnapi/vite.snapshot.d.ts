@@ -9,6 +9,7 @@ export interface LeylinesVitePluginOptions extends OpenScopedLogsOptions {
   captureErrors?: boolean;
   captureRejections?: boolean;
   production?: boolean;
+  stripProduction?: boolean;
   metadata?: JsonObject;
   posthog?: boolean | PostHogViteOptions;
   viteLogger?: boolean | ViteLoggerCaptureOptions;
@@ -28,6 +29,7 @@ export interface VitePluginLike {
   configResolved(_: ViteResolvedConfigLike): void;
   configureServer(_: ViteServerLike): void;
   transformIndexHtml(_: string): string;
+  transform(_: string, _?: string): string | null;
   closeBundle(): void;
 }
 // #endregion

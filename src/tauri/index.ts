@@ -9,9 +9,9 @@ export type DetachTauriLogger = () => void
 export interface TauriLoggerOptions {
   /** Browser logger receiving forwarded records. Defaults to the Leylines singleton. */
   logger?: BrowserLogger
-  /** Child scope under the connected browser logger. Defaults to `tauri`. */
+  /** Scope assigned to forwarded Tauri records. Defaults to `tauri`. */
   scope?: string
-  /** Metadata inherited by every forwarded Tauri record. */
+  /** Structured context inherited by every forwarded Tauri record. */
   metadata?: JsonObject
   /** Structured properties inherited by every forwarded Tauri record. */
   properties?: JsonObject
@@ -20,19 +20,18 @@ export interface TauriLoggerOptions {
 /** Attach Tauri plugin-log forwarding to the Leylines browser logger connected by the Vite plugin. */
 export function attachTauriLogger(options: TauriLoggerOptions = {}): DetachTauriLogger {
   const controller = new AbortController()
-  const target = (options.logger ?? logger).child({
-    scope: options.scope ?? 'tauri',
-    metadata: {
-      ...options.metadata,
-      source: 'tauri.log',
-    },
-    properties: options.properties,
-  })
+  const target = options.logger ?? logger
+  const scope = options.scope ?? 'tauri'
+  const properties = {
+    ...options.properties,
+    ...options.metadata,
+    source: 'tauri.log',
+  }
 
   void attachLogger((record) => {
     if (!controller.signal.aborted) {
       try {
-        target.write(toLeylinesLevel(record.level), record.message)
+        target.write(toLeylinesLevel(record.level), scope, record.message, properties)
       } catch {
         // Forwarding must not interfere with Tauri's own log delivery.
       }

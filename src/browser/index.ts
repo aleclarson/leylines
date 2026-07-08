@@ -17,20 +17,22 @@ export interface BrowserLoggerOptions {
 
 /** Browser logger API used by application code. */
 export interface BrowserLogger {
-  /** Current dotted domain scope for entries from this logger. */
-  readonly scope: string
-  /** Create a child logger with merged inherited context and a nested scope. */
-  child(options: { scope?: string; properties?: JsonObject; metadata?: JsonObject }): BrowserLogger
-  /** Write a debug entry. */
-  debug(message: string, properties?: JsonObject): void
-  /** Write an info entry. */
-  info(message: string, properties?: JsonObject): void
-  /** Write a warning entry. */
-  warn(message: string, properties?: JsonObject): void
-  /** Write an error entry, optionally with normalized error details. */
-  error(message: string, properties?: JsonObject, error?: unknown): void
-  /** Write an entry at an explicit level. */
-  write(level: LogLevel, message: string, properties?: JsonObject, error?: unknown): void
+  /** Write a debug entry for a dotted domain scope. */
+  debug(scope: string, message: string, properties?: JsonObject): void
+  /** Write an info entry for a dotted domain scope. */
+  info(scope: string, message: string, properties?: JsonObject): void
+  /** Write a warning entry for a dotted domain scope. */
+  warn(scope: string, message: string, properties?: JsonObject): void
+  /** Write an error entry for a dotted domain scope, optionally with normalized error details. */
+  error(scope: string, message: string, properties?: JsonObject, error?: unknown): void
+  /** Write an entry at an explicit level for a dotted domain scope. */
+  write(
+    level: LogLevel,
+    scope: string,
+    message: string,
+    properties?: JsonObject,
+    error?: unknown,
+  ): void
 }
 
 /** Singleton browser logger that can be connected to a runtime ingestion endpoint. */
@@ -49,7 +51,7 @@ export interface BrowserLoggerConnectOptions extends BrowserLoggerOptions {
   captureRejections?: boolean
 }
 
-function createBrowserLogger(options: BrowserLoggerOptions): BrowserLogger {
+function createBrowserLogger(options: BrowserLoggerOptions): BrowserScopedLogger {
   const transport = options.fetch ?? fetch
   const browserGlobal = globalThis as typeof globalThis & {
     location?: { href?: string }
@@ -68,24 +70,17 @@ function createBrowserLogger(options: BrowserLoggerOptions): BrowserLogger {
   return new BrowserScopedLogger({
     endpoint: options.endpoint,
     fetch: transport,
-    scope: options.scope ?? 'browser',
     metadata,
     properties: options.properties ?? {},
   })
 }
 
-type BrowserLoggerChildOptions = { scope?: string; properties?: JsonObject; metadata?: JsonObject }
-
 class BrowserLoggerRoot implements BrowserLoggerSingleton {
-  #active: BrowserLogger | undefined
+  #active: BrowserScopedLogger | undefined
   #scope = 'browser'
   #consoleOriginals = new Map<LogLevel, (...args: unknown[]) => void>()
   #errorListener: ((event: unknown) => void) | undefined
   #rejectionListener: ((event: unknown) => void) | undefined
-
-  get scope(): string {
-    return this.#scope
-  }
 
   connect(options: BrowserLoggerConnectOptions): BrowserLoggerSingleton {
     this.#active = createBrowserLogger(options)
@@ -96,45 +91,34 @@ class BrowserLoggerRoot implements BrowserLoggerSingleton {
     return this
   }
 
-  child(options: BrowserLoggerChildOptions): BrowserLogger {
-    return new BrowserLoggerChild(this, options)
+  debug(scope: string, message: string, properties?: JsonObject): void {
+    this.write('debug', scope, message, properties)
   }
 
-  debug(message: string, properties?: JsonObject): void {
-    this.write('debug', message, properties)
+  info(scope: string, message: string, properties?: JsonObject): void {
+    this.write('info', scope, message, properties)
   }
 
-  info(message: string, properties?: JsonObject): void {
-    this.write('info', message, properties)
+  warn(scope: string, message: string, properties?: JsonObject): void {
+    this.write('warn', scope, message, properties)
   }
 
-  warn(message: string, properties?: JsonObject): void {
-    this.write('warn', message, properties)
+  error(scope: string, message: string, properties?: JsonObject, error?: unknown): void {
+    this.write('error', scope, message, properties, error)
   }
 
-  error(message: string, properties?: JsonObject, error?: unknown): void {
-    this.write('error', message, properties, error)
-  }
-
-  write(level: LogLevel, message: string, properties?: JsonObject, error?: unknown): void {
-    this.writeFrom(undefined, level, message, properties, error)
-  }
-
-  writeFrom(
-    childOptions: BrowserLoggerChildOptions | undefined,
+  write(
     level: LogLevel,
+    scope: string,
     message: string,
     properties?: JsonObject,
     error?: unknown,
   ): void {
-    let target = this.#active
+    const target = this.#active
     if (!target) {
       return
     }
-    if (childOptions) {
-      target = target.child(childOptions)
-    }
-    target.write(level, message, properties, error)
+    target.write(level, scope, message, properties, error)
   }
 
   #configureConsoleCapture(captureConsole: boolean | LogLevel[] | undefined): void {
@@ -163,7 +147,7 @@ class BrowserLoggerRoot implements BrowserLoggerSingleton {
     this.#consoleOriginals.set(level, original)
     console[level] = (...args: unknown[]) => {
       original.apply(console, args)
-      this.write(level, args.map(formatConsoleArg).join(' '), { console: true })
+      this.write(level, this.#scope, args.map(formatConsoleArg).join(' '), { console: true })
     }
   }
 
@@ -184,6 +168,7 @@ class BrowserLoggerRoot implements BrowserLoggerSingleton {
       }
       this.#errorListener = (event) => {
         this.error(
+          this.#scope,
           'Uncaught error',
           {
             filename: readJsonProperty(event, 'filename'),
@@ -210,7 +195,7 @@ class BrowserLoggerRoot implements BrowserLoggerSingleton {
         return
       }
       this.#rejectionListener = (event) => {
-        this.error('Unhandled promise rejection', {}, readProperty(event, 'reason'))
+        this.error(this.#scope, 'Unhandled promise rejection', {}, readProperty(event, 'reason'))
       }
       eventTarget.addEventListener?.('unhandledrejection', this.#rejectionListener)
       return
@@ -223,66 +208,17 @@ class BrowserLoggerRoot implements BrowserLoggerSingleton {
   }
 }
 
-class BrowserLoggerChild implements BrowserLogger {
-  #root: BrowserLoggerRoot
-  #options: BrowserLoggerChildOptions
-
-  constructor(root: BrowserLoggerRoot, options: BrowserLoggerChildOptions) {
-    this.#root = root
-    this.#options = options
-  }
-
-  get scope(): string {
-    return this.#options.scope ? joinScope(this.#root.scope, this.#options.scope) : this.#root.scope
-  }
-
-  child(options: BrowserLoggerChildOptions): BrowserLogger {
-    return new BrowserLoggerChild(this.#root, {
-      scope: options.scope
-        ? this.#options.scope
-          ? joinScope(this.#options.scope, options.scope)
-          : options.scope
-        : this.#options.scope,
-      metadata: { ...this.#options.metadata, ...options.metadata },
-      properties: { ...this.#options.properties, ...options.properties },
-    })
-  }
-
-  debug(message: string, properties?: JsonObject): void {
-    this.write('debug', message, properties)
-  }
-
-  info(message: string, properties?: JsonObject): void {
-    this.write('info', message, properties)
-  }
-
-  warn(message: string, properties?: JsonObject): void {
-    this.write('warn', message, properties)
-  }
-
-  error(message: string, properties?: JsonObject, error?: unknown): void {
-    this.write('error', message, properties, error)
-  }
-
-  write(level: LogLevel, message: string, properties?: JsonObject, error?: unknown): void {
-    this.#root.writeFrom(this.#options, level, message, properties, error)
-  }
-}
-
 /** Side-effect-free singleton browser logger. Call `logger.connect` before entries are sent. */
 export const logger: BrowserLoggerSingleton = new BrowserLoggerRoot()
 
 interface BrowserScopedLoggerOptions {
   endpoint: string
   fetch: typeof fetch
-  scope: string
   metadata: JsonObject
   properties: JsonObject
 }
 
 class BrowserScopedLogger implements BrowserLogger {
-  readonly scope: string
-
   #endpoint: string
   #fetch: typeof fetch
   #metadata: JsonObject
@@ -291,45 +227,36 @@ class BrowserScopedLogger implements BrowserLogger {
   constructor(options: BrowserScopedLoggerOptions) {
     this.#endpoint = options.endpoint
     this.#fetch = options.fetch
-    this.scope = options.scope
     this.#metadata = options.metadata
     this.#properties = options.properties
   }
 
-  child(options: {
-    scope?: string
-    properties?: JsonObject
-    metadata?: JsonObject
-  }): BrowserLogger {
-    return new BrowserScopedLogger({
-      endpoint: this.#endpoint,
-      fetch: this.#fetch,
-      scope: options.scope ? joinScope(this.scope, options.scope) : this.scope,
-      metadata: { ...this.#metadata, ...options.metadata },
-      properties: { ...this.#properties, ...options.properties },
-    })
+  debug(scope: string, message: string, properties?: JsonObject): void {
+    this.write('debug', scope, message, properties)
   }
 
-  debug(message: string, properties?: JsonObject): void {
-    this.write('debug', message, properties)
+  info(scope: string, message: string, properties?: JsonObject): void {
+    this.write('info', scope, message, properties)
   }
 
-  info(message: string, properties?: JsonObject): void {
-    this.write('info', message, properties)
+  warn(scope: string, message: string, properties?: JsonObject): void {
+    this.write('warn', scope, message, properties)
   }
 
-  warn(message: string, properties?: JsonObject): void {
-    this.write('warn', message, properties)
+  error(scope: string, message: string, properties?: JsonObject, error?: unknown): void {
+    this.write('error', scope, message, properties, error)
   }
 
-  error(message: string, properties?: JsonObject, error?: unknown): void {
-    this.write('error', message, properties, error)
-  }
-
-  write(level: LogLevel, message: string, properties?: JsonObject, error?: unknown): void {
+  write(
+    level: LogLevel,
+    scope: string,
+    message: string,
+    properties?: JsonObject,
+    error?: unknown,
+  ): void {
     const entry: LogEntryInput = {
       level,
-      scope: this.scope,
+      scope,
       message,
       metadata: this.#metadata,
       properties: { ...this.#properties, ...properties },
@@ -343,13 +270,6 @@ class BrowserScopedLogger implements BrowserLogger {
       keepalive: true,
     }).catch(() => {})
   }
-}
-
-function joinScope(parent: string, child: string): string {
-  if (child === parent || child.startsWith(`${parent}.`)) {
-    return child
-  }
-  return `${parent}.${child}`
 }
 
 function formatConsoleArg(value: unknown): string {

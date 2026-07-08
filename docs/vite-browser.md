@@ -21,6 +21,7 @@ export default defineConfig({
       captureConsole: ['warn', 'error'],
       captureErrors: true,
       captureRejections: true,
+      stripProduction: true,
     }),
   ],
 })
@@ -45,6 +46,28 @@ leylines({
 
 The default endpoint is `/__scoped_logs`, and the default browser scope is
 `browser`.
+
+Use `stripProduction: true` when application logger calls should be removed from
+production modules:
+
+```ts
+leylines({
+  stripProduction: true,
+})
+```
+
+The source rewriter removes standalone browser logger calls after static
+`leylines/browser` imports:
+
+```ts
+import { logger } from 'leylines/browser'
+
+logger.info('router', 'route loaded')
+logger.warn('checkout', 'submit retrying', { attempt: 2 })
+```
+
+Remaining logger references are replaced with a local no-op logger so unusual
+usage still builds without sending entries.
 
 ## Vite Logger Capture
 
@@ -82,8 +105,8 @@ leylines({
 ```ts
 import { logger } from 'leylines/browser'
 
-logger.info('route loaded', { route: '/settings' })
-logger.child({ scope: 'checkout' }).warn('submit retrying', {
+logger.info('router', 'route loaded', { route: '/settings' })
+logger.warn('checkout', 'submit retrying', {
   attempt: 2,
 })
 ```
@@ -94,6 +117,9 @@ plugin connects it during page load.
 
 Before connection, logger writes are ignored. After the Vite plugin injects
 `logger.connect(...)`, browser entries are posted to the configured endpoint.
+The first argument is the entry scope, and the second argument is the event
+message. Keep scopes stable around the product area or component, such as
+`router` or `checkout.payment`; put the event action in the message.
 
 ## Tauri Log Forwarding
 
@@ -117,8 +143,8 @@ const detachTauriLogs = attachTauriLogger({
 
 The Vite plugin connects `leylines/browser` before application modules run, so
 Tauri records sent through `attachTauriLogger` are posted to the same
-`/__scoped_logs` endpoint as browser entries. The default scope is
-`browser.tauri`, and each entry includes `metadata.source: 'tauri.log'`.
+`/__scoped_logs` endpoint as browser entries. The default scope is `tauri`, and
+each entry includes `properties.source: 'tauri.log'`.
 
 Call the returned function when forwarding should stop:
 
@@ -174,8 +200,8 @@ leylines({
 ## Inspect Browser Logs
 
 ```sh
+ley --scope router
 ley --scope-prefix browser
-ley --scope-prefix browser --json
 ```
 
 Use the Vite logger scope separately when you enabled Vite logger capture:

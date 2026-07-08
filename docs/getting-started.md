@@ -81,6 +81,7 @@ export default defineConfig({
     leylines({
       scope: 'browser',
       captureConsole: ['warn', 'error'],
+      stripProduction: true,
     }),
   ],
 })
@@ -91,18 +92,19 @@ Application code can use the injected browser logger:
 ```ts
 import { logger } from 'leylines/browser'
 
-logger.info('route loaded', { route: '/settings' })
-logger.child({ scope: 'checkout' }).warn('submit retrying')
+logger.info('router', 'route loaded', { route: '/settings' })
+logger.warn('checkout', 'submit retrying', { attempt: 2 })
 ```
 
 During Vite serve mode, the plugin injects `logger.connect(...)` before app code
 and registers a local ingestion endpoint. Production builds are quiet unless
-`production: true` is configured.
+`production: true` is configured. With `stripProduction: true`, standalone
+browser logger calls are removed from production modules.
 
 Query browser entries from the same terminal surface:
 
 ```sh
-ley --scope-prefix browser --json
+ley --scope router --json
 ```
 
 ## Next Guides

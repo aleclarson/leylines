@@ -9,6 +9,7 @@ export default defineConfig({
       captureConsole: ['warn', 'error'],
       captureErrors: true,
       captureRejections: true,
+      stripProduction: true,
     }),
   ],
 })

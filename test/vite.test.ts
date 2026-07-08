@@ -76,6 +76,61 @@ describe('leylines', () => {
     )
   })
 
+  it('strips browser logger calls from production builds', () => {
+    const plugin = leylines({
+      production: true,
+      stripProduction: true,
+    })
+    plugin.configResolved({ mode: 'production', command: 'build' })
+
+    expect(plugin.transformIndexHtml('<html><head></head><body></body></html>')).toBe(
+      '<html><head></head><body></body></html>',
+    )
+    expect(
+      plugin.transform(
+        [
+          "import { logger } from 'leylines/browser'",
+          "logger.info('checkout', 'loaded', { cartId })",
+          "logger.error('checkout.payment', 'failed', {}, error)",
+          'const answer = 42',
+        ].join('\n'),
+        '/src/App.tsx',
+      ),
+    ).toBe('const answer = 42')
+  })
+
+  it('keeps a no-op logger when stripped production modules still reference it', () => {
+    const plugin = leylines({ stripProduction: true })
+    plugin.configResolved({ mode: 'production', command: 'build' })
+
+    const transformed = plugin.transform(
+      [
+        "import { type BrowserLogger, logger as appLogger } from 'leylines/browser'",
+        "appLogger.warn('checkout', 'retrying')",
+        'export const currentLogger = appLogger',
+      ].join('\n'),
+      '/src/logger.ts',
+    )
+
+    expect(transformed).toContain('const __leylinesNoopLogger = {')
+    expect(transformed).toContain('const appLogger = __leylinesNoopLogger')
+    expect(transformed).toContain("import { type BrowserLogger } from 'leylines/browser'")
+    expect(transformed).toContain('export const currentLogger = appLogger')
+    expect(transformed).not.toContain("appLogger.warn('checkout', 'retrying')")
+  })
+
+  it('does not rewrite browser logger calls during serve mode', () => {
+    const plugin = leylines({ stripProduction: true })
+    plugin.configResolved({ mode: 'development', command: 'serve' })
+
+    expect(
+      plugin.transform(
+        "import { logger } from 'leylines/browser'\nlogger.info('checkout', 'loaded')",
+        '/src/App.tsx',
+      ),
+    ).toBeNull()
+  })
+
   it('redirects PostHog capture payloads into the local log store', async () => {
     const plugin = leylines({
       path: storePath,
@@ -326,14 +381,14 @@ describe('browser logger', () => {
       captureRejections: false,
     })
 
-    logger.child({ scope: 'router', properties: { route: '/home' } }).info('route loaded')
+    logger.info('router', 'route loaded', { route: '/home' })
 
     expect(calls).toEqual([
       {
         url: '/logs',
         body: expect.objectContaining({
           level: 'info',
-          scope: 'browser.router',
+          scope: 'router',
           message: 'route loaded',
           metadata: expect.objectContaining({ sessionId: 's1' }),
           properties: { route: '/home' },
@@ -342,9 +397,8 @@ describe('browser logger', () => {
     ])
   })
 
-  it('keeps child scopes relative to the current connected root', () => {
+  it('uses explicit scopes for application entries', () => {
     const calls: Array<{ url: string; body: { scope?: string } }> = []
-    const routerLogger = logger.child({ scope: 'router' })
     const transport = ((url: string, init: { body?: string }) => {
       calls.push({ url, body: JSON.parse(init.body ?? '{}') })
       return Promise.resolve({ ok: true })
@@ -357,7 +411,7 @@ describe('browser logger', () => {
       captureErrors: false,
       captureRejections: false,
     })
-    routerLogger.info('loaded')
+    logger.info('router', 'loaded')
 
     logger.connect({
       endpoint: '/logs',
@@ -366,9 +420,9 @@ describe('browser logger', () => {
       captureErrors: false,
       captureRejections: false,
     })
-    routerLogger.info('reloaded')
+    logger.info('router', 'reloaded')
 
-    expect(calls.map((call) => call.body.scope)).toEqual(['browser.router', 'app.router'])
+    expect(calls.map((call) => call.body.scope)).toEqual(['router', 'router'])
   })
 
   it('keeps console capture idempotent across repeated connects', () => {

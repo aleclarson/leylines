@@ -3,17 +3,11 @@
  */
 // #region Interfaces
 export interface BrowserLogger {
-  readonly scope: string;
-  child(_: {
-    scope?: string;
-    properties?: JsonObject;
-    metadata?: JsonObject;
-  }): BrowserLogger;
-  debug(_: string, _?: JsonObject): void;
-  info(_: string, _?: JsonObject): void;
-  warn(_: string, _?: JsonObject): void;
-  error(_: string, _?: JsonObject, _?: unknown): void;
-  write(_: LogLevel, _: string, _?: JsonObject, _?: unknown): void;
+  debug(_: string, _: string, _?: JsonObject): void;
+  info(_: string, _: string, _?: JsonObject): void;
+  warn(_: string, _: string, _?: JsonObject): void;
+  error(_: string, _: string, _?: JsonObject, _?: unknown): void;
+  write(_: LogLevel, _: string, _: string, _?: JsonObject, _?: unknown): void;
 }
 export interface BrowserLoggerConnectOptions extends BrowserLoggerOptions {
   captureConsole?: boolean | LogLevel[];

@@ -92,14 +92,16 @@ export default defineConfig({
       captureConsole: ['warn', 'error'],
       captureErrors: true,
       captureRejections: true,
+      stripProduction: true,
     }),
   ],
 })
 ```
 
 The plugin registers a local ingestion endpoint and injects the browser logger
-during Vite serve mode. Production build capture is quiet by default; pass
-`production: true` only when browser capture is intentionally desired.
+during Vite serve mode. Production build capture is quiet by default. With
+`stripProduction: true`, production builds also remove standalone browser
+logger calls such as `logger.info('router', 'route loaded')`.
 
 Vite dev-server warnings and errors can also be captured directly from Vite's
 logger without changing normal terminal output:
@@ -130,8 +132,8 @@ import { attachTauriLogger } from 'leylines/tauri'
 const detachTauriLogs = attachTauriLogger()
 ```
 
-Forwarded Tauri records use the `browser.tauri` scope by default. Tauri `trace`
-records map to Leylines `debug` entries.
+Forwarded Tauri records use the `tauri` scope by default. Tauri `trace` records
+map to Leylines `debug` entries.
 
 PostHog product metrics can be redirected into the same local store during
 development:
@@ -153,10 +155,10 @@ import { logger } from 'leylines/browser'
 
 logger.connect({
   endpoint: '/__scoped_logs',
-  scope: 'app.router',
+  scope: 'browser',
 })
 
-logger.info('route loaded', { route: '/settings' })
+logger.info('router', 'route loaded', { route: '/settings' })
 ```
 
 ## Redaction And Retention
