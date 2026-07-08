@@ -47,11 +47,15 @@ Point PostHog's browser SDK at the local endpoint during development:
 ```ts
 posthog.init(projectKey, {
   api_host: '/__leylines/posthog',
+  advanced_disable_flags: import.meta.env.DEV,
 })
 ```
 
 Keep production PostHog configuration separate so production analytics use the
-real PostHog host.
+real PostHog host. `advanced_disable_flags: import.meta.env.DEV` keeps the
+browser SDK from fetching remote flag/configuration data during development;
+the Leylines `/__leylines/posthog` endpoint only captures PostHog event payloads
+and does not implement PostHog's remote configuration endpoints.
 
 In a Vite app, gate the local host by mode and keep the production host in the
 same place as the rest of the app's environment-specific configuration:
@@ -61,6 +65,7 @@ const apiHost = import.meta.env.DEV ? '/__leylines/posthog' : productionPostHogH
 
 posthog.init(projectKey, {
   api_host: apiHost,
+  advanced_disable_flags: import.meta.env.DEV,
 })
 ```
 
