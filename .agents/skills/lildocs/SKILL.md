@@ -15,7 +15,7 @@ boundaries:
 - existing docs and README
 - docs root, folder layout, and generated navigation
 - package scripts and CI workflows
-- examples and fixtures used by the project
+- guides and fixtures used by the project
 - configuration, theme, font, and asset files
 
 When publishing behavior matters, verify it from the installed package docs or
@@ -88,7 +88,7 @@ many pages, give it a canonical home and link to it instead of redefining it in
 each workflow.
 
 Use file and folder names as navigation labels. Prefer short, stable nouns for
-reference areas and action-oriented names for workflows:
+concept areas and action-oriented names for workflows:
 
 ```text
 docs/
@@ -97,14 +97,97 @@ docs/
   guides/
     publish.md
     customize-theme.md
-  reference/
-    cli.md
-    configuration.md
+  concepts/
+    navigation.md
+  troubleshooting.md
 ```
 
 Keep prerequisite information before the steps that depend on it. Keep
 conceptual tradeoffs before the choice they influence. Put warnings immediately
 before the action they can change.
+
+## Mermaid Diagrams
+
+Use a Mermaid diagram when visual structure helps the reader understand a
+relationship they would otherwise need to reconstruct from prose. Diagrams are
+especially desirable for:
+
+- workflows with meaningful branches, parallel steps, or feedback loops
+- lifecycle states and the transitions allowed between them
+- dependencies, ownership boundaries, or handoffs among several components
+- request or message sequences involving multiple actors
+- architecture overviews where grouping and connection are the point
+
+Prefer `flowchart` for workflows, dependencies, and architecture;
+`sequenceDiagram` for interactions over time; and `stateDiagram-v2` for
+lifecycle transitions. Keep each diagram focused on one idea, use short labels,
+and introduce it with prose that tells the reader what relationship to notice.
+
+Do not add a diagram merely to decorate a page or restate a short linear list,
+definitions, headings, or a comparison that a table communicates more clearly.
+If layout, direction, grouping, or connection carries no additional meaning,
+use prose, a list, or a table instead.
+
+## Callouts
+
+lildocs supports GitHub-style Markdown callouts. Use them when a detail changes
+how the reader should interpret or perform the surrounding task:
+
+- `NOTE`: useful context that prevents confusion but does not change the task
+- `TIP`: optional advice that improves the result or saves time
+- `IMPORTANT`: required information that readers must know before continuing
+- `WARNING`: risk, data loss, compatibility, or irreversible action to check
+- `CAUTION`: hazardous or easy-to-misuse behavior that needs extra restraint
+
+Keep callouts close to the step, option, or concept they affect. Do not use a
+callout for ordinary prose, page summaries, or content that belongs in the main
+flow.
+
+```md
+> [!NOTE]
+> Search indexes are generated at build time, so changed pages require a new
+> build before local search reflects them.
+
+> [!WARNING]
+> Delete the output directory only when it contains generated site files.
+```
+
+## Public API Documentation
+
+When documentation touches TypeScript library APIs, keep factual API behavior
+near the source instead of creating hand-maintained `docs/reference/` prose.
+
+Default to this source-of-truth model:
+
+- public TSDoc owns symbol behavior, parameters, returns, errors, invariants,
+  side effects, deprecations, and related APIs
+- `docs/guides/` owns usage, composition, common workflows, and preferred
+  defaults when those patterns belong in dedicated guide pages
+- concept docs own mental models, lifecycle, terminology, API-selection
+  guidance, stable patterns, and anti-patterns
+- generated declarations own exact signatures and module shape
+
+Treat the published surface as public:
+
+- package export-map entrypoints
+- source entry files intended for consumers
+- symbols reachable from generated declaration files
+- documented re-exports intended as API
+
+Every public export should have at least a useful TSDoc summary. Add detailed
+tags when they clarify real behavior:
+
+- `@param`
+- `@returns`
+- `@throws`
+- `@example`
+- `@remarks`
+- `@deprecated`
+- `@see`
+
+Do not document internal helpers as public API unless they are intentionally
+exported. If declarations expose internal-only symbols, prefer fixing the
+package boundary over documenting the leak as official API.
 
 ## Writing Quality
 
@@ -191,9 +274,11 @@ comments are syntax highlighted correctly.
 
 ## Reference Pages
 
-Reference pages should be complete inside their stated boundary and optimized
-for lookup speed. Put the boundary at the top, then use consistent tables,
-short subsections, and examples only where readers might choose incorrectly.
+Product reference pages should be complete inside their stated boundary and
+optimized for lookup speed. Put the boundary at the top, then use consistent
+tables, short subsections, and examples only where readers might choose
+incorrectly. For TypeScript API reference, prefer public TSDoc plus generated
+declarations over hand-maintained reference pages.
 
 For commands, include syntax, required arguments, defaults, side effects,
 generated files, and failure cases that change user action.
@@ -213,7 +298,7 @@ Before finishing docs changes, verify that:
 - duplicated explanations have a canonical home
 - claims are grounded in project files, tests, package docs, or source
 - every non-trivial concept has a nearby example
-- examples use project-realistic names, paths, and commands
+- guide examples use project-realistic names, paths, and commands
 - links, headings, anchors, diagrams, and assets work in the generated site
 - terminology is consistent across changed pages
 
