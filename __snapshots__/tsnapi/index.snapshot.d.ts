@@ -68,6 +68,7 @@ export interface LogQuery {
 }
 export interface OpenScopedLogsOptions {
   path?: string;
+  production?: boolean;
   retention?: RetentionOptions;
   redaction?: RedactionOptions;
   collapseAboveBytes?: number;
@@ -89,7 +90,8 @@ export interface RetentionOptions {
   maxAgeMs?: number;
 }
 export interface ScopedLogs {
-  readonly store: LogStore;
+  readonly enabled: boolean;
+  readonly store: LogStore | undefined;
   logger(_: LoggerOptions | string): ScopedLogger;
   query(_?: LogQuery): ReturnType<LogStore['query']>;
   tail(_?: LogQuery, _?: {
@@ -129,15 +131,15 @@ export declare class LogStore {
 export declare class ScopedLogger {
   #private;
   readonly scope: string;
-  constructor(_: LogStore, _: LoggerOptions);
+  constructor(_: LogStore | undefined, _: LoggerOptions);
   child(_?: Partial<LoggerOptions> & {
     scope?: string;
   }): ScopedLogger;
-  debug(_: string, _?: LoggerWriteOptions): LogEntry;
-  info(_: string, _?: LoggerWriteOptions): LogEntry;
-  warn(_: string, _?: LoggerWriteOptions): LogEntry;
-  error(_: string, _?: LoggerWriteOptions): LogEntry;
-  write(_: LogLevel, _: string, _?: LoggerWriteOptions): LogEntry;
+  debug(_: string, _?: LoggerWriteOptions): LogEntry | undefined;
+  info(_: string, _?: LoggerWriteOptions): LogEntry | undefined;
+  warn(_: string, _?: LoggerWriteOptions): LogEntry | undefined;
+  error(_: string, _?: LoggerWriteOptions): LogEntry | undefined;
+  write(_: LogLevel, _: string, _?: LoggerWriteOptions): LogEntry | undefined;
 }
 // #endregion
 

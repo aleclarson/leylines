@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { defaultStorePath, openScopedLogs } from '../src/index.js'
@@ -6,15 +6,57 @@ import { defaultStorePath, openScopedLogs } from '../src/index.js'
 describe('openScopedLogs', () => {
   let dir: string
   let cwd: string
+  let nodeEnv: string | undefined
 
   beforeEach(() => {
     dir = mkdtempSync(join(tmpdir(), 'leylines-node-'))
     cwd = process.cwd()
+    nodeEnv = process.env.NODE_ENV
   })
 
   afterEach(() => {
     process.chdir(cwd)
+    if (nodeEnv === undefined) {
+      delete process.env.NODE_ENV
+    } else {
+      process.env.NODE_ENV = nodeEnv
+    }
     rmSync(dir, { recursive: true, force: true })
+  })
+
+  it('disables logging without filesystem side effects in production', async () => {
+    const path = join(dir, 'logs.sqlite')
+    process.env.NODE_ENV = 'production'
+
+    const logs = openScopedLogs({ path })
+    const entry = logs.logger('app').info('ignored')
+
+    expect(logs.enabled).toBe(false)
+    expect(logs.store).toBeUndefined()
+    expect(entry).toBeUndefined()
+    expect(logs.query()).toEqual({ entries: [] })
+    await expect(logs.tail()[Symbol.asyncIterator]().next()).resolves.toEqual({
+      done: true,
+      value: undefined,
+    })
+    expect(logs.listScopes()).toEqual([])
+    expect(logs.expand('missing')).toBeUndefined()
+    expect(existsSync(path)).toBe(false)
+    logs.close()
+  })
+
+  it('allows production logging when explicitly enabled', () => {
+    const path = join(dir, 'logs.sqlite')
+    process.env.NODE_ENV = 'production'
+
+    const logs = openScopedLogs({ path, production: true })
+    const entry = logs.logger('app').info('persisted')
+
+    expect(logs.enabled).toBe(true)
+    expect(entry?.message).toBe('persisted')
+    expect(logs.query().entries).toHaveLength(1)
+    expect(existsSync(path)).toBe(true)
+    logs.close()
   })
 
   it('creates scoped loggers that write through the canonical store', () => {

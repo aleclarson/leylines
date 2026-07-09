@@ -44,6 +44,11 @@ console.log(page.entries)
 logs.close()
 ```
 
+The Node API is disabled when `NODE_ENV` is `production`: it does not create a
+database, writes return `undefined`, and queries return no entries. Pass
+`production: true` to `openScopedLogs` only when production capture is
+intentional.
+
 Each entry has a stable id, timestamp, sequence, level, scope, message,
 metadata, structured properties, and optional error details. Supported levels
 are `debug`, `info`, `warn`, and `error`.

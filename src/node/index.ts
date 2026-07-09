@@ -15,6 +15,8 @@ import type {
 /** Options for opening the high-level Scoped Logs API. */
 export interface OpenScopedLogsOptions {
   path?: string
+  /** Enable logging when `NODE_ENV` is `production`. Disabled by default. */
+  production?: boolean
   /** Retention policy applied during store maintenance. */
   retention?: RetentionOptions
   /** Redaction rules applied before entries are persisted. */
@@ -47,8 +49,10 @@ export interface LoggerWriteOptions {
 
 /** High-level handle for writing, querying, tailing, and closing a log store. */
 export interface ScopedLogs {
-  /** Underlying durable store used by this handle. */
-  readonly store: LogStore
+  /** Whether this handle writes to a durable store. */
+  readonly enabled: boolean
+  /** Underlying durable store, absent when production logging is disabled. */
+  readonly store: LogStore | undefined
   /** Create a logger for a scope or full logger options. */
   logger(options: LoggerOptions | string): ScopedLogger
   /** Query stored entries. */
@@ -68,12 +72,12 @@ export class ScopedLogger {
   /** Dotted domain scope assigned to entries from this logger. */
   readonly scope: string
 
-  #store: LogStore
+  #store: LogStore | undefined
   #properties: JsonObject
   #metadata: JsonObject
 
   /** Create a logger backed by `store` with inherited scope, properties, and metadata. */
-  constructor(store: LogStore, options: LoggerOptions) {
+  constructor(store: LogStore | undefined, options: LoggerOptions) {
     this.#store = store
     this.scope = options.scope
     this.#properties = options.properties ?? {}
@@ -90,28 +94,28 @@ export class ScopedLogger {
   }
 
   /** Write a debug entry. Debug entries are hidden from default queries unless requested. */
-  debug(message: string, options?: LoggerWriteOptions): LogEntry {
+  debug(message: string, options?: LoggerWriteOptions): LogEntry | undefined {
     return this.write('debug', message, options)
   }
 
   /** Write an info entry. */
-  info(message: string, options?: LoggerWriteOptions): LogEntry {
+  info(message: string, options?: LoggerWriteOptions): LogEntry | undefined {
     return this.write('info', message, options)
   }
 
   /** Write a warning entry. */
-  warn(message: string, options?: LoggerWriteOptions): LogEntry {
+  warn(message: string, options?: LoggerWriteOptions): LogEntry | undefined {
     return this.write('warn', message, options)
   }
 
   /** Write an error entry, optionally with normalized error details. */
-  error(message: string, options?: LoggerWriteOptions): LogEntry {
+  error(message: string, options?: LoggerWriteOptions): LogEntry | undefined {
     return this.write('error', message, options)
   }
 
   /** Write an entry at an explicit level. */
-  write(level: LogLevel, message: string, options: LoggerWriteOptions = {}): LogEntry {
-    return this.#store.write({
+  write(level: LogLevel, message: string, options: LoggerWriteOptions = {}): LogEntry | undefined {
+    return this.#store?.write({
       timestamp: options.timestamp,
       level,
       scope: this.scope,
@@ -125,6 +129,33 @@ export class ScopedLogger {
 
 /** Open the high-level Scoped Logs API around a durable local store. */
 export function openScopedLogs(options: OpenScopedLogsOptions = {}): ScopedLogs {
+  const enabled = process.env.NODE_ENV !== 'production' || options.production === true
+  if (!enabled) {
+    return {
+      enabled,
+      store: undefined,
+      logger(options) {
+        return new ScopedLogger(
+          undefined,
+          typeof options === 'string' ? { scope: options } : options,
+        )
+      },
+      query() {
+        return { entries: [] }
+      },
+      tail() {
+        return emptyLogTail()
+      },
+      expand() {
+        return undefined
+      },
+      listScopes() {
+        return []
+      },
+      close() {},
+    }
+  }
+
   const path = options.path ?? defaultStorePath()
   if (options.path === undefined) {
     ensureDefaultStoreGitExcluded()
@@ -138,6 +169,7 @@ export function openScopedLogs(options: OpenScopedLogsOptions = {}): ScopedLogs 
   })
 
   return {
+    enabled,
     store,
     logger(options) {
       return new ScopedLogger(store, typeof options === 'string' ? { scope: options } : options)
@@ -159,6 +191,8 @@ export function openScopedLogs(options: OpenScopedLogsOptions = {}): ScopedLogs 
     },
   }
 }
+
+async function* emptyLogTail(): AsyncIterable<LogEntry> {}
 
 /** Resolve the inferred local store path. */
 export function defaultStorePath(): string {

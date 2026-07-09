@@ -160,7 +160,7 @@ const recentCommand = command({
   description: 'Print recent log entries',
   args: queryArgs,
   handler(args) {
-    const logs = openScopedLogs()
+    const logs = openCliLogs()
     try {
       writeEntries(logs.query(toQuery(args)).entries, args.json)
     } finally {
@@ -174,7 +174,7 @@ const tailCommand = command({
   description: 'Print new log entries as they are appended',
   args: queryArgs,
   async handler(args) {
-    const logs = openScopedLogs()
+    const logs = openCliLogs()
     try {
       for await (const entry of logs.tail(toQuery(args))) {
         writeEntries([entry], args.json)
@@ -192,7 +192,7 @@ const scopesCommand = command({
     json: queryArgs.json,
   },
   handler({ json }) {
-    const logs = openScopedLogs()
+    const logs = openCliLogs()
     try {
       const scopes = logs.listScopes()
       process.stdout.write(
@@ -218,7 +218,7 @@ const expandCommand = command({
     json: queryArgs.json,
   },
   handler({ id, json }) {
-    const logs = openScopedLogs()
+    const logs = openCliLogs()
     try {
       const value = logs.expand(id)
       if (!value) {
@@ -238,6 +238,11 @@ const expandCommand = command({
     }
   },
 })
+
+// Inspection remains available for stores intentionally captured from production processes.
+function openCliLogs() {
+  return openScopedLogs({ production: true })
+}
 
 const pathCommand = command({
   name: 'path',

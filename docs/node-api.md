@@ -14,6 +14,17 @@ const logs = openScopedLogs()
 Leylines writes to the inferred local store at `.leylines/logs.sqlite` under the
 current working directory.
 
+Leylines is development-only by default. When `NODE_ENV` is `production`,
+`openScopedLogs()` returns a disabled handle: it does not create a database,
+writes return `undefined`, and queries return no entries. Check `logs.enabled`
+when application behavior depends on whether an entry was persisted.
+
+Enable production logging only when it is intentional:
+
+```ts
+const logs = openScopedLogs({ production: true })
+```
+
 Close the handle when the process no longer needs it:
 
 ```ts

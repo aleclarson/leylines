@@ -31,7 +31,7 @@ export interface LeylinesVitePluginOptions extends OpenScopedLogsOptions {
   captureErrors?: boolean
   /** Capture unhandled promise rejections. Defaults to `true`. */
   captureRejections?: boolean
-  /** Enable the plugin during production builds. Development serve mode is the default. */
+  /** Enable the plugin and its Node log store during production builds. */
   production?: boolean
   /** Remove browser logger calls from production builds and replace remaining logger references with no-ops. */
   stripProduction?: boolean
@@ -139,7 +139,7 @@ export function leylines(options: LeylinesVitePluginOptions = {}): VitePluginLik
             try {
               const normalizedMessage = stripAnsi(message)
               const error = objectProperty(logOptions, 'error')
-              ensureLogs().store.write({
+              ensureLogs().store?.write({
                 level,
                 scope: viteLogger.scope,
                 message: normalizedMessage,
@@ -173,7 +173,7 @@ export function leylines(options: LeylinesVitePluginOptions = {}): VitePluginLik
         readBody(req)
           .then((body) => {
             const input = JSON.parse(body) as LogEntryInput
-            logs?.store.write({
+            logs?.store?.write({
               ...input,
               metadata: {
                 ...options.metadata,
@@ -199,7 +199,7 @@ export function leylines(options: LeylinesVitePluginOptions = {}): VitePluginLik
           server,
           posthog,
           write(entry) {
-            logs?.store.write(entry)
+            logs?.store?.write(entry)
           },
           metadata: options.metadata,
           mode,
