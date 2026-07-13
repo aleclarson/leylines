@@ -1,5 +1,5 @@
 import { EventEmitter } from 'node:events'
-import { mkdtempSync, rmSync } from 'node:fs'
+import { existsSync, mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { gzipSync } from 'node:zlib'
@@ -23,6 +23,7 @@ describe('leylines', () => {
   it('registers a local ingestion endpoint that writes redacted browser entries', async () => {
     const plugin = leylines({
       path: storePath,
+      test: true,
       endpoint: '/logs',
       metadata: { viteMode: 'override' },
     })
@@ -39,7 +40,7 @@ describe('leylines', () => {
     })
     plugin.closeBundle()
 
-    const logs = openScopedLogs({ path: storePath })
+    const logs = openScopedLogs({ path: storePath, test: true })
     expect(logs.query({ includeDebug: true }).entries[0]).toMatchObject({
       level: 'info',
       scope: 'browser.router',
@@ -58,6 +59,7 @@ describe('leylines', () => {
   it('injects browser logger setup for serve mode and stays quiet for build mode by default', () => {
     const serve = leylines({
       endpoint: '/logs',
+      test: true,
       scope: 'app.browser',
       captureConsole: ['error'],
     })
@@ -69,18 +71,44 @@ describe('leylines', () => {
     expect(serve.transformIndexHtml('<html><head></head><body></body></html>')).toContain(
       '"scope":"app.browser"',
     )
+    expect(serve.transformIndexHtml('<html><head></head><body></body></html>')).toContain(
+      '"test":true',
+    )
 
-    const build = leylines()
+    const build = leylines({ test: true })
     build.configResolved({ mode: 'production', command: 'build' })
     expect(build.transformIndexHtml('<html><head></head><body></body></html>')).toBe(
       '<html><head></head><body></body></html>',
     )
   })
 
+  it('does not install instrumentation in test environments by default', () => {
+    const plugin = leylines({ path: storePath, captureViteLogger: true })
+    const server = fakeServer()
+    const terminalOutput: string[] = []
+    const viteLogger = {
+      warn(message: string) {
+        terminalOutput.push(message)
+      },
+    }
+
+    plugin.configResolved({ mode: 'test', command: 'serve', logger: viteLogger })
+    plugin.configureServer(server)
+    viteLogger.warn('test warning')
+
+    expect(plugin.transformIndexHtml('<html><head></head></html>')).toBe(
+      '<html><head></head></html>',
+    )
+    expect(() => server.post('/__scoped_logs', {})).toThrow('No handler')
+    expect(terminalOutput).toEqual(['test warning'])
+    expect(existsSync(storePath)).toBe(false)
+  })
+
   it('strips browser logger calls from production builds', () => {
     const plugin = leylines({
       production: true,
       stripProduction: true,
+      test: true,
     })
     plugin.configResolved({ mode: 'production', command: 'build' })
 
@@ -101,7 +129,7 @@ describe('leylines', () => {
   })
 
   it('keeps a no-op logger when stripped production modules still reference it', () => {
-    const plugin = leylines({ stripProduction: true })
+    const plugin = leylines({ stripProduction: true, test: true })
     plugin.configResolved({ mode: 'production', command: 'build' })
 
     const transformed = plugin.transform(
@@ -121,7 +149,7 @@ describe('leylines', () => {
   })
 
   it('does not rewrite browser logger calls during serve mode', () => {
-    const plugin = leylines({ stripProduction: true })
+    const plugin = leylines({ stripProduction: true, test: true })
     plugin.configResolved({ mode: 'development', command: 'serve' })
 
     expect(
@@ -135,6 +163,7 @@ describe('leylines', () => {
   it('redirects PostHog capture payloads into the local log store', async () => {
     const plugin = leylines({
       path: storePath,
+      test: true,
       posthog: true,
     })
     const server = fakeServer()
@@ -159,7 +188,7 @@ describe('leylines', () => {
     )
     plugin.closeBundle()
 
-    const logs = openScopedLogs({ path: storePath })
+    const logs = openScopedLogs({ path: storePath, test: true })
     const entries = logs.query({ scope: 'posthog', includeDebug: true }).entries
     expect(entries[0]).toMatchObject({
       level: 'info',
@@ -196,6 +225,7 @@ describe('leylines', () => {
   it('redirects PostHog batch payloads with custom endpoint and scope', async () => {
     const plugin = leylines({
       path: storePath,
+      test: true,
       posthog: {
         endpoint: '/analytics',
         scope: 'metrics.product',
@@ -212,7 +242,7 @@ describe('leylines', () => {
     })
     plugin.closeBundle()
 
-    const logs = openScopedLogs({ path: storePath })
+    const logs = openScopedLogs({ path: storePath, test: true })
     expect(logs.query({ scope: 'metrics.product', includeDebug: true }).entries).toEqual([
       expect.objectContaining({
         scope: 'metrics.product',
@@ -237,6 +267,7 @@ describe('leylines', () => {
   it('redirects compressed PostHog event endpoint payloads', async () => {
     const plugin = leylines({
       path: storePath,
+      test: true,
       posthog: true,
     })
     const server = fakeServer()
@@ -257,7 +288,7 @@ describe('leylines', () => {
     )
     plugin.closeBundle()
 
-    const logs = openScopedLogs({ path: storePath })
+    const logs = openScopedLogs({ path: storePath, test: true })
     const entries = logs.query({ scope: 'posthog', includeDebug: true }).entries
     expect(entries).toHaveLength(1)
     expect(entries[0]).toMatchObject({
@@ -307,6 +338,7 @@ describe('leylines', () => {
     }
     const plugin = leylines({
       path: storePath,
+      test: true,
       metadata: { testRun: 'vite-logger' },
       viteLogger: {
         scope: 'dev.vite',
@@ -332,7 +364,7 @@ describe('leylines', () => {
       { level: 'error', message: 'hmr update failed' },
     ])
 
-    const logs = openScopedLogs({ path: storePath })
+    const logs = openScopedLogs({ path: storePath, test: true })
     const entries = logs.query({ scope: 'dev.vite', includeDebug: true }).entries
     expect(entries).toHaveLength(3)
     expect(entries[0]).toMatchObject({
@@ -381,6 +413,7 @@ describe('leylines', () => {
     }
     const plugin = leylines({
       path: storePath,
+      test: true,
       captureViteLogger: ['error'],
     })
     plugin.configResolved({ logger: viteLogger })
@@ -391,7 +424,7 @@ describe('leylines', () => {
 
     expect(terminalOutput).toEqual(['warn:still terminal-only', 'error:captured error'])
 
-    const logs = openScopedLogs({ path: storePath })
+    const logs = openScopedLogs({ path: storePath, test: true })
     expect(logs.query({ scope: 'dev.vite', includeDebug: true }).entries).toEqual([
       expect.objectContaining({
         level: 'error',
@@ -414,10 +447,29 @@ describe('browser logger', () => {
     })
   })
 
+  it('does not connect or capture console output in test environments by default', () => {
+    const calls: string[] = []
+    const originalWarn = console.warn
+
+    logger.connect({
+      endpoint: '/logs',
+      fetch: ((url: string) => {
+        calls.push(url)
+        return Promise.resolve({ ok: true })
+      }) as typeof fetch,
+      captureConsole: ['warn'],
+    })
+    logger.info('router', 'ignored')
+
+    expect(calls).toEqual([])
+    expect(console.warn).toBe(originalWarn)
+  })
+
   it('sends entries with browser metadata to the configured endpoint', () => {
     const calls: Array<{ url: string; body: unknown }> = []
     logger.connect({
       endpoint: '/logs',
+      test: true,
       scope: 'browser',
       metadata: { sessionId: 's1' },
       fetch: ((url: string, init: { body?: string }) => {
@@ -453,6 +505,7 @@ describe('browser logger', () => {
 
     logger.connect({
       endpoint: '/logs',
+      test: true,
       scope: 'browser',
       fetch: transport,
       captureErrors: false,
@@ -462,6 +515,7 @@ describe('browser logger', () => {
 
     logger.connect({
       endpoint: '/logs',
+      test: true,
       scope: 'app',
       fetch: transport,
       captureErrors: false,
@@ -480,6 +534,7 @@ describe('browser logger', () => {
     try {
       logger.connect({
         endpoint: '/logs',
+        test: true,
         scope: 'browser',
         fetch: ((url: string, init: { body?: string }) => {
           calls.push({ url, body: JSON.parse(init.body ?? '{}') })
@@ -493,6 +548,7 @@ describe('browser logger', () => {
 
       logger.connect({
         endpoint: '/logs',
+        test: true,
         scope: 'browser',
         fetch: ((url: string, init: { body?: string }) => {
           calls.push({ url, body: JSON.parse(init.body ?? '{}') })

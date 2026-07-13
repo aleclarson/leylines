@@ -1,5 +1,6 @@
 import { attachLogger, LogLevel as TauriPluginLogLevel } from '@tauri-apps/plugin-log'
 import { logger, type BrowserLogger } from '../browser/index.js'
+import { isTestEnvironment } from '../core/environment.js'
 import type { JsonObject, LogLevel } from '../core/types.js'
 
 /** Function returned by Tauri's logger attachment to stop forwarding records. */
@@ -9,6 +10,8 @@ export type DetachTauriLogger = () => void
 export interface TauriLoggerOptions {
   /** Browser logger receiving forwarded records. Defaults to the Leylines singleton. */
   logger?: BrowserLogger
+  /** Enable forwarding in recognized test environments. Disabled by default. */
+  test?: boolean
   /** Scope assigned to forwarded Tauri records. Defaults to `tauri`. */
   scope?: string
   /** Structured context inherited by every forwarded Tauri record. */
@@ -19,6 +22,10 @@ export interface TauriLoggerOptions {
 
 /** Attach Tauri plugin-log forwarding to the Leylines browser logger connected by the Vite plugin. */
 export function attachTauriLogger(options: TauriLoggerOptions = {}): DetachTauriLogger {
+  if (isTestEnvironment() && options.test !== true) {
+    return () => {}
+  }
+
   const controller = new AbortController()
   const target = options.logger ?? logger
   const scope = options.scope ?? 'tauri'

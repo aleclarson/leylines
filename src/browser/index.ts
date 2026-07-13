@@ -1,3 +1,4 @@
+import { isTestEnvironment } from '../core/environment.js'
 import { toJsonValue } from '../core/json.js'
 import type { JsonObject, JsonValue, LogEntryInput, LogLevel } from '../core/types.js'
 
@@ -13,6 +14,8 @@ export interface BrowserLoggerOptions {
   properties?: JsonObject
   /** Fetch implementation to use. Defaults to global `fetch`. */
   fetch?: typeof fetch
+  /** Enable logging in recognized test environments. Disabled by default. */
+  test?: boolean
 }
 
 /** Browser logger API used by application code. */
@@ -83,11 +86,12 @@ class BrowserLoggerRoot implements BrowserLoggerSingleton {
   #rejectionListener: ((event: unknown) => void) | undefined
 
   connect(options: BrowserLoggerConnectOptions): BrowserLoggerSingleton {
-    this.#active = createBrowserLogger(options)
+    this.#active =
+      !isTestEnvironment() || options.test === true ? createBrowserLogger(options) : undefined
     this.#scope = options.scope ?? 'browser'
-    this.#configureConsoleCapture(options.captureConsole)
-    this.#configureErrorCapture(options.captureErrors ?? true)
-    this.#configureRejectionCapture(options.captureRejections ?? true)
+    this.#configureConsoleCapture(this.#active ? options.captureConsole : false)
+    this.#configureErrorCapture(this.#active ? (options.captureErrors ?? true) : false)
+    this.#configureRejectionCapture(this.#active ? (options.captureRejections ?? true) : false)
     return this
   }
 

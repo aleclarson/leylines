@@ -69,6 +69,7 @@ export interface LogQuery {
 export interface OpenScopedLogsOptions {
   path?: string;
   production?: boolean;
+  test?: boolean;
   retention?: RetentionOptions;
   redaction?: RedactionOptions;
   collapseAboveBytes?: number;

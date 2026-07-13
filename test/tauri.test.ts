@@ -44,6 +44,7 @@ describe('tauri logger integration', () => {
     const calls: Array<{ url: string; body: Record<string, unknown> }> = []
     logger.connect({
       endpoint: '/__scoped_logs',
+      test: true,
       scope: 'browser',
       metadata: { sessionId: 's1' },
       fetch: ((url: string, init: { body?: string }) => {
@@ -56,6 +57,7 @@ describe('tauri logger integration', () => {
     })
 
     const detach = attachTauriLogger({
+      test: true,
       scope: 'native',
       metadata: { windowLabel: 'main' },
       properties: { process: 'rust' },
@@ -111,7 +113,7 @@ describe('tauri logger integration', () => {
         }),
     )
 
-    const detach = attachTauriLogger()
+    const detach = attachTauriLogger({ test: true })
     detach()
     expect(tauriLog.listeners).toHaveLength(1)
 
@@ -121,5 +123,12 @@ describe('tauri logger integration', () => {
     await Promise.resolve()
 
     expect(tauriLog.listeners).toEqual([])
+  })
+
+  it('does not attach Tauri forwarding in test environments by default', () => {
+    const detach = attachTauriLogger()
+
+    expect(tauriLog.attachLogger).not.toHaveBeenCalled()
+    detach()
   })
 })

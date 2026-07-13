@@ -20,6 +20,7 @@ export interface BrowserLoggerOptions {
   metadata?: JsonObject;
   properties?: JsonObject;
   fetch?: typeof fetch;
+  test?: boolean;
 }
 export interface BrowserLoggerSingleton extends BrowserLogger {
   connect(_: BrowserLoggerConnectOptions): BrowserLoggerSingleton;

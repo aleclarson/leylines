@@ -1,4 +1,5 @@
 import { openScopedLogs, type OpenScopedLogsOptions, type ScopedLogs } from '../node/index.js'
+import { isTestEnvironment } from '../core/environment.js'
 import { toJsonValue } from '../core/json.js'
 import type { JsonObject, LogEntryInput, LogLevel } from '../core/types.js'
 import {
@@ -120,6 +121,7 @@ export function leylines(options: LeylinesVitePluginOptions = {}): VitePluginLik
   const viteLogger = resolveViteLoggerOptions(options)
   let mode = 'development'
   let command = 'serve'
+  let enabled = options.test === true || !isTestEnvironment()
   let logs: ScopedLogs | undefined
   let restoreViteLogger: (() => void) | undefined
 
@@ -131,6 +133,14 @@ export function leylines(options: LeylinesVitePluginOptions = {}): VitePluginLik
     configResolved(config) {
       mode = config.mode ?? mode
       command = config.command ?? command
+      enabled = options.test === true || (!isTestEnvironment() && mode !== 'test')
+      if (!enabled) {
+        restoreViteLogger?.()
+        restoreViteLogger = undefined
+        logs?.close()
+        logs = undefined
+        return
+      }
       if (viteLogger && config.logger) {
         restoreViteLogger?.()
         restoreViteLogger = installViteLoggerCapture(config.logger, {
@@ -163,6 +173,9 @@ export function leylines(options: LeylinesVitePluginOptions = {}): VitePluginLik
       }
     },
     configureServer(server) {
+      if (!enabled) {
+        return
+      }
       logs = ensureLogs()
       server.middlewares.use(endpoint, (req, res, next) => {
         if (req.method !== 'POST') {
@@ -208,14 +221,14 @@ export function leylines(options: LeylinesVitePluginOptions = {}): VitePluginLik
       }
     },
     transformIndexHtml(html) {
-      if ((!options.production || options.stripProduction) && command === 'build') {
+      if (!enabled || ((!options.production || options.stripProduction) && command === 'build')) {
         return html
       }
 
       return html.replace(/<\/head>/i, `${scriptTag(endpoint, scope, options)}</head>`)
     },
     transform(code, id) {
-      if (!options.stripProduction || command !== 'build') {
+      if (!enabled || !options.stripProduction || command !== 'build') {
         return null
       }
       return stripBrowserLogger(code, id)
@@ -237,6 +250,7 @@ function scriptTag(endpoint: string, scope: string, options: LeylinesVitePluginO
     captureErrors: options.captureErrors ?? true,
     captureRejections: options.captureRejections ?? true,
     metadata: options.metadata ?? {},
+    test: options.test ?? false,
   })
 
   return `<script type="module">import{logger}from"leylines/browser";logger.connect(${payload});globalThis.__leylines=logger;</script>`

@@ -28,7 +28,7 @@ describe('openScopedLogs', () => {
     const path = join(dir, 'logs.sqlite')
     process.env.NODE_ENV = 'production'
 
-    const logs = openScopedLogs({ path })
+    const logs = openScopedLogs({ path, test: true })
     const entry = logs.logger('app').info('ignored')
 
     expect(logs.enabled).toBe(false)
@@ -45,11 +45,23 @@ describe('openScopedLogs', () => {
     logs.close()
   })
 
+  it('disables logging without filesystem side effects in test environments', () => {
+    const path = join(dir, 'logs.sqlite')
+
+    const logs = openScopedLogs({ path })
+    const entry = logs.logger('app').info('ignored')
+
+    expect(logs.enabled).toBe(false)
+    expect(logs.store).toBeUndefined()
+    expect(entry).toBeUndefined()
+    expect(existsSync(path)).toBe(false)
+  })
+
   it('allows production logging when explicitly enabled', () => {
     const path = join(dir, 'logs.sqlite')
     process.env.NODE_ENV = 'production'
 
-    const logs = openScopedLogs({ path, production: true })
+    const logs = openScopedLogs({ path, production: true, test: true })
     const entry = logs.logger('app').info('persisted')
 
     expect(logs.enabled).toBe(true)
@@ -60,7 +72,7 @@ describe('openScopedLogs', () => {
   })
 
   it('creates scoped loggers that write through the canonical store', () => {
-    const logs = openScopedLogs({ path: join(dir, 'logs.sqlite') })
+    const logs = openScopedLogs({ path: join(dir, 'logs.sqlite'), test: true })
     const logger = logs.logger({
       scope: 'checkout.cart',
       properties: { request: { id: 'req-1' } },
@@ -89,7 +101,7 @@ describe('openScopedLogs', () => {
   })
 
   it('creates child loggers with inherited properties and nested scopes', () => {
-    const logs = openScopedLogs({ path: join(dir, 'logs.sqlite') })
+    const logs = openScopedLogs({ path: join(dir, 'logs.sqlite'), test: true })
     const logger = logs.logger({ scope: 'worker', properties: { queue: 'email' } })
     const child = logger.child({ scope: 'job', properties: { jobId: 'job-1' } })
 
@@ -114,12 +126,12 @@ describe('openScopedLogs', () => {
     writeFileSync(excludePath, '# local excludes\n')
     process.chdir(repoDir)
 
-    openScopedLogs().close()
+    openScopedLogs({ test: true }).close()
     const contents = readFileSync(excludePath, 'utf8')
 
     expect(contents).toBe('# local excludes\n.leylines/\n')
 
-    openScopedLogs().close()
+    openScopedLogs({ test: true }).close()
     expect(readFileSync(excludePath, 'utf8')).toBe(contents)
   })
 
@@ -135,13 +147,17 @@ describe('openScopedLogs', () => {
     writeFileSync(join(worktreeGitDir, 'commondir'), '../..\n')
     process.chdir(worktreeDir)
 
-    openScopedLogs().close()
+    openScopedLogs({ test: true }).close()
 
     expect(readFileSync(excludePath, 'utf8')).toBe('.leylines/\n')
   })
 
   it('delegates query, tail, expansion, scopes, and close to the store', async () => {
-    const logs = openScopedLogs({ path: join(dir, 'logs.sqlite'), collapseAboveBytes: 20 })
+    const logs = openScopedLogs({
+      path: join(dir, 'logs.sqlite'),
+      collapseAboveBytes: 20,
+      test: true,
+    })
     const controller = new AbortController()
     const next = logs
       .tail({ scope: 'app' }, { signal: controller.signal })

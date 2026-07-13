@@ -31,6 +31,22 @@ In serve mode, the plugin:
 - injects `logger.connect(...)` into HTML
 - optionally captures console calls, uncaught errors, and unhandled rejections
 
+In recognized test environments, the plugin does none of this by default. The
+runtime guard also disables direct `leylines/browser` connections and Tauri log
+forwarding, so non-Vite browser tests do not send requests or install capture
+hooks. This runtime behavior covers more test setups than source stripping and
+leaves production stripping as a separate build-size choice.
+
+Instrumentation tests can exercise the complete plugin and browser path with
+an explicit opt-in:
+
+```ts
+leylines({
+  test: true,
+  path: '.leylines/instrumentation-test.sqlite',
+})
+```
+
 Production build capture is disabled by default. Use `production: true` only
 when production browser capture is intentional.
 
@@ -138,6 +154,15 @@ const detachTauriLogs = attachTauriLogger({
 })
 ```
 
+Use `test: true` only in instrumentation tests that need to exercise Tauri log
+forwarding:
+
+```ts
+const detachTestLogs = attachTauriLogger({ test: true })
+```
+
+Application tests leave it omitted, so no native listener is attached.
+
 The Vite plugin connects `leylines/browser` before application modules run, so
 Tauri records sent through `attachTauriLogger` are posted to the same
 `/__scoped_logs` endpoint as browser entries. The default scope is `tauri`, and
@@ -163,6 +188,13 @@ logger.connect({
   captureErrors: true,
   captureRejections: true,
 })
+```
+
+Tests that intentionally verify the direct browser transport opt in on the
+connection:
+
+```ts
+logger.connect({ endpoint: '/__scoped_logs', test: true })
 ```
 
 Repeated `connect` calls reconfigure the singleton without stacking duplicate

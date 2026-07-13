@@ -14,10 +14,12 @@ const logs = openScopedLogs()
 Leylines writes to the inferred local store at `.leylines/logs.sqlite` under the
 current working directory.
 
-Leylines is development-only by default. When `NODE_ENV` is `production`,
-`openScopedLogs()` returns a disabled handle: it does not create a database,
-writes return `undefined`, and queries return no entries. Check `logs.enabled`
-when application behavior depends on whether an entry was persisted.
+Leylines is development-only by default. In production and recognized test
+environments, `openScopedLogs()` returns a disabled handle: it does not create a
+database, writes return `undefined`, and queries return no entries. Leylines
+recognizes `NODE_ENV=test`, Vitest, Jest workers, and the Node.js test runner at
+runtime. Check `logs.enabled` when application behavior depends on whether an
+entry was persisted.
 
 Enable production logging only when it is intentional:
 
@@ -31,11 +33,14 @@ Close the handle when the process no longer needs it:
 logs.close()
 ```
 
-Use an explicit path when a script or test needs an isolated store:
+Instrumentation tests can opt in with an explicit path and `test: true`:
 
 ```ts
-const logs = openScopedLogs({ path: '.leylines/test.sqlite' })
+const logs = openScopedLogs({ path: '.leylines/test.sqlite', test: true })
 ```
+
+The runtime guard lives in the Node API rather than the Vite transform so it
+also covers test suites that import Leylines without Vite.
 
 ## Write Scoped Entries
 

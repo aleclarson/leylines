@@ -4,6 +4,7 @@
 // #region Interfaces
 export interface TauriLoggerOptions {
   logger?: BrowserLogger;
+  test?: boolean;
   scope?: string;
   metadata?: JsonObject;
   properties?: JsonObject;

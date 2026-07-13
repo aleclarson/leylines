@@ -2,6 +2,7 @@ import { appendFileSync, readFileSync, statSync, mkdirSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { isPlainObject } from 'radashi'
 import { openLogStore, type LogStore } from './store.js'
+import { isTestEnvironment } from '../core/environment.js'
 import { toJsonObject, toJsonValue } from '../core/json.js'
 import type {
   JsonObject,
@@ -17,6 +18,8 @@ export interface OpenScopedLogsOptions {
   path?: string
   /** Enable logging when `NODE_ENV` is `production`. Disabled by default. */
   production?: boolean
+  /** Enable logging in recognized test environments. Disabled by default. */
+  test?: boolean
   /** Retention policy applied during store maintenance. */
   retention?: RetentionOptions
   /** Redaction rules applied before entries are persisted. */
@@ -129,7 +132,9 @@ export class ScopedLogger {
 
 /** Open the high-level Scoped Logs API around a durable local store. */
 export function openScopedLogs(options: OpenScopedLogsOptions = {}): ScopedLogs {
-  const enabled = process.env.NODE_ENV !== 'production' || options.production === true
+  const enabled =
+    (!isTestEnvironment() || options.test === true) &&
+    (process.env.NODE_ENV !== 'production' || options.production === true)
   if (!enabled) {
     return {
       enabled,
