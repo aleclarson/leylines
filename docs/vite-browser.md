@@ -99,10 +99,18 @@ leylines({
 Captured entries keep Vite mode, command, logger method, and Rollup/Vite error
 context such as plugin name, hook, module id, source location, frame, and stack
 when Vite provides them. Terminal output still goes through Vite's normal
-logger.
+logger. Captured Vite `warn` and `error` calls keep those Leylines levels.
+When `info` is included in `levels`, Vite `info` calls are stored as Leylines
+`debug` entries, so default queries stay focused on diagnostics:
 
 ```sh
 ley --scope-prefix dev.vite --min-level warn --json
+```
+
+Request the captured Vite `info` entries explicitly:
+
+```sh
+ley --scope-prefix dev.vite --include-debug --json
 ```
 
 For the default `dev.vite` scope, `captureViteLogger` is a shorthand:
@@ -110,6 +118,15 @@ For the default `dev.vite` scope, `captureViteLogger` is a shorthand:
 ```ts
 leylines({
   captureViteLogger: ['warn', 'error'],
+})
+```
+
+Set the shorthand to `true` to capture Vite `info`, `warn`, and `error`. The
+captured `info` entries still use the Leylines `debug` level:
+
+```ts
+leylines({
+  captureViteLogger: true,
 })
 ```
 

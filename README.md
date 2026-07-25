@@ -121,6 +121,22 @@ leylines({
 })
 ```
 
+Vite `warn` and `error` keep their Leylines levels. Add `info` explicitly when
+using `viteLogger`; captured Vite `info` is stored as Leylines `debug` and is
+therefore hidden from default queries:
+
+```ts
+leylines({
+  viteLogger: {
+    levels: ['info', 'warn', 'error'],
+  },
+})
+```
+
+The `captureViteLogger: true` shorthand captures all three Vite levels. Use
+`ley --scope-prefix dev.vite --include-debug --json` to include captured Vite
+`info` entries.
+
 ```sh
 ley --scope-prefix dev.vite --min-level warn --json
 ```

@@ -42,7 +42,10 @@ export interface LeylinesVitePluginOptions extends OpenScopedLogsOptions {
   posthog?: boolean | PostHogViteOptions
   /** Capture Vite's own logger output into the local Leylines store. */
   viteLogger?: boolean | ViteLoggerCaptureOptions
-  /** Shorthand for `viteLogger.levels` with the default `dev.vite` scope. */
+  /**
+   * Shorthand for `viteLogger.levels` with the default `dev.vite` scope.
+   * `true` captures `info`, `warn`, and `error`.
+   */
   captureViteLogger?: boolean | ViteLoggerCaptureLevel[]
 }
 
@@ -150,7 +153,7 @@ export function leylines(options: LeylinesVitePluginOptions = {}): VitePluginLik
               const normalizedMessage = stripAnsi(message)
               const error = objectProperty(logOptions, 'error')
               ensureLogs().store?.write({
-                level,
+                level: level === 'info' ? 'debug' : level,
                 scope: viteLogger.scope,
                 message: normalizedMessage,
                 metadata: viteLoggerMetadata({
@@ -509,6 +512,7 @@ function readBody(req: RequestLike): Promise<string> {
 
 const defaultViteLoggerScope = 'dev.vite'
 const defaultViteLoggerLevels: ViteLoggerCaptureLevel[] = ['warn', 'error']
+const allViteLoggerLevels: ViteLoggerCaptureLevel[] = ['info', 'warn', 'error']
 const ansiEscapePattern = new RegExp(`${String.fromCharCode(27)}\\[[0-?]*[ -/]*[@-~]`, 'g')
 
 function resolveViteLoggerOptions(
@@ -539,7 +543,7 @@ function resolveViteLoggerOptions(
     scope: defaultViteLoggerScope,
     levels:
       options.captureViteLogger === true
-        ? defaultViteLoggerLevels
+        ? allViteLoggerLevels
         : normalizeViteLoggerLevels(options.captureViteLogger),
   }
 }

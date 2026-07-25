@@ -434,6 +434,56 @@ describe('leylines', () => {
     ])
     logs.close()
   })
+
+  it('captures every Vite logger level with the true shorthand and hides info by default', () => {
+    const terminalOutput: string[] = []
+    const viteLogger = {
+      info(message: string) {
+        terminalOutput.push(`info:${message}`)
+      },
+      warn(message: string) {
+        terminalOutput.push(`warn:${message}`)
+      },
+      error(message: string) {
+        terminalOutput.push(`error:${message}`)
+      },
+    }
+    const plugin = leylines({
+      path: storePath,
+      test: true,
+      captureViteLogger: true,
+    })
+    plugin.configResolved({ logger: viteLogger })
+
+    viteLogger.info('dev server ready')
+    viteLogger.warn('dependency scan warning')
+    viteLogger.error('dependency scan failed')
+    plugin.closeBundle()
+
+    expect(terminalOutput).toEqual([
+      'info:dev server ready',
+      'warn:dependency scan warning',
+      'error:dependency scan failed',
+    ])
+
+    const logs = openScopedLogs({ path: storePath, test: true })
+    expect(
+      logs.query({ scope: 'dev.vite' }).entries.map((entry) => [entry.level, entry.message]),
+    ).toEqual([
+      ['warn', 'dependency scan warning'],
+      ['error', 'dependency scan failed'],
+    ])
+    expect(
+      logs
+        .query({ scope: 'dev.vite', includeDebug: true })
+        .entries.map((entry) => [entry.level, entry.message, entry.metadata.viteLoggerMethod]),
+    ).toEqual([
+      ['debug', 'dev server ready', 'info'],
+      ['warn', 'dependency scan warning', 'warn'],
+      ['error', 'dependency scan failed', 'error'],
+    ])
+    logs.close()
+  })
 })
 
 describe('browser logger', () => {
