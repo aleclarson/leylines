@@ -241,7 +241,7 @@ const expandCommand = command({
 
 // Inspection remains available for stores intentionally captured from production processes.
 function openCliLogs() {
-  return openScopedLogs({ production: true })
+  return openScopedLogs({ production: true, test: true })
 }
 
 const pathCommand = command({

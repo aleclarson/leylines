@@ -145,10 +145,22 @@ describe('LogStore', () => {
     store.write({ id: 'one', timestamp: '2026-01-01T00:00:00.000Z', level: 'info', scope: 'app', message: 'one' })
     store.write({ id: 'two', timestamp: '2026-01-01T00:00:01.000Z', level: 'info', scope: 'app', message: 'two' })
     store.write({ id: 'three', timestamp: '2026-01-01T00:00:02.000Z', level: 'info', scope: 'app', message: 'three' })
+    store.write({ id: 'four', timestamp: '2026-01-01T00:00:03.000Z', level: 'info', scope: 'app', message: 'four' })
 
-    expect(store.query({ limit: 2 }).entries.map(entry => entry.id)).toEqual(['one', 'two'])
-    expect(store.query({ after: 'one' }).entries.map(entry => entry.id)).toEqual(['two', 'three'])
-    expect(store.query({ before: 'three' }).entries.map(entry => entry.id)).toEqual(['one', 'two'])
+    expect(store.query({ limit: 2 }).entries.map(entry => entry.id)).toEqual(['three', 'four'])
+    expect(store.query({ after: 'one', limit: 2 }).entries.map(entry => entry.id)).toEqual(['two', 'three'])
+    expect(store.query({ before: 'four', limit: 2 }).entries.map(entry => entry.id)).toEqual(['two', 'three'])
+    store.close()
+  })
+
+  it('finds the newest matches beyond the first candidate batch', () => {
+    const store = openLogStore({ path: join(dir, 'logs.sqlite') })
+    store.write({ id: 'match', level: 'info', scope: 'app', message: 'target', properties: { match: true } })
+    for (let index = 0; index < 60; index += 1) {
+      store.write({ id: `skip-${index}`, level: 'info', scope: 'app', message: 'skip' })
+    }
+
+    expect(store.query({ limit: 1, properties: [{ path: 'match', equals: true }] }).entries.map(entry => entry.id)).toEqual(['match'])
     store.close()
   })
 

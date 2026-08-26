@@ -20,8 +20,9 @@ ley --scope-prefix checkout --min-level warn
 ley --text payment --include-debug
 ```
 
-Default output is compact and chronological. `debug` entries are hidden unless
-requested with `--include-debug`, `--level debug`, or an explicit level list.
+The command selects the most recent matching entries, then prints them in
+chronological order. `debug` entries are hidden unless requested with
+`--include-debug`, `--level debug`, or an explicit level list.
 
 The default recent timeline returns at most 50 entries when `--limit` is not
 provided.

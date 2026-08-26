@@ -106,8 +106,10 @@ for (const entry of page.entries) {
 }
 ```
 
-Queries are chronological and deterministic. Use `before` and `after` cursors
-for pagination.
+Queries return the newest page by default, in chronological and deterministic
+order. `before` selects the page immediately preceding its cursor; `after`
+selects the page immediately following its cursor. Returned pages remain
+chronological in both directions.
 
 Default queries return up to 50 entries. `limit` is clamped between 1 and 1000.
 

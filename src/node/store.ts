@@ -143,16 +143,27 @@ export class LogStore {
   query(query: LogQuery = {}): LogPage {
     this.#assertOpen()
     const limit = Math.max(1, Math.min(query.limit ?? 50, 1_000))
-    const candidates = this.#candidateRows(query, limit * 5)
-      .map(rowToEntry)
-      .filter(entry => this.#matchesEntryBoundaries(entry, query))
-      .filter(entry => matchesQuery(entry, query))
-      .slice(0, limit)
+    const backwards = query.after === undefined
+    const batchSize = Math.max(limit * 5, 50)
+    const matches: LogEntry[] = []
+    let offset = 0
+
+    while (matches.length < limit) {
+      const rows = this.#candidateRows(query, batchSize, offset, backwards)
+      matches.push(...rows.map(rowToEntry).filter(entry => matchesQuery(entry, query)))
+      if (rows.length < batchSize) {
+        break
+      }
+      offset += rows.length
+    }
+
+    const page = matches.slice(0, limit)
+    const entries = backwards ? page.reverse() : page
 
     return {
-      entries: candidates,
-      nextBefore: candidates[0]?.id,
-      nextAfter: candidates.at(-1)?.id,
+      entries,
+      nextBefore: entries[0]?.id,
+      nextAfter: entries.at(-1)?.id,
     }
   }
 
@@ -209,7 +220,7 @@ export class LogStore {
     return (row?.seq ?? 0) + 1
   }
 
-  #candidateRows(query: LogQuery, limit: number): EntryRow[] {
+  #candidateRows(query: LogQuery, limit: number, offset: number, backwards: boolean): EntryRow[] {
     const clauses: string[] = []
     const values: (string | number)[] = []
 
@@ -242,33 +253,27 @@ export class LogStore {
       values.push(`%${escapeLike(query.text)}%`)
     }
 
+    const before = query.before ? this.#entryById(query.before) : undefined
+    if (before) {
+      clauses.push('(timestamp < ? OR (timestamp = ? AND sequence < ?))')
+      values.push(before.timestamp, before.timestamp, before.sequence)
+    }
+
+    const after = query.after ? this.#entryById(query.after) : undefined
+    if (after) {
+      clauses.push('(timestamp > ? OR (timestamp = ? AND sequence > ?))')
+      values.push(after.timestamp, after.timestamp, after.sequence)
+    }
+
     const sql = `
       SELECT sequence, id, timestamp, level, scope, message, metadata_json, properties_json, error_json
       FROM entries
       ${clauses.length ? `WHERE ${clauses.join(' AND ')}` : ''}
-      ORDER BY timestamp ASC, sequence ASC
-      LIMIT ?
+      ORDER BY timestamp ${backwards ? 'DESC' : 'ASC'}, sequence ${backwards ? 'DESC' : 'ASC'}
+      LIMIT ? OFFSET ?
     `
 
-    return this.#db.prepare(sql).all(...values, limit) as unknown as EntryRow[]
-  }
-
-  #matchesEntryBoundaries(entry: LogEntry, query: LogQuery): boolean {
-    if (query.before) {
-      const boundary = this.#entryById(query.before)
-      if (boundary && compareEntryOrder(entry, boundary) >= 0) {
-        return false
-      }
-    }
-
-    if (query.after) {
-      const boundary = this.#entryById(query.after)
-      if (boundary && compareEntryOrder(entry, boundary) <= 0) {
-        return false
-      }
-    }
-
-    return true
+    return this.#db.prepare(sql).all(...values, limit, offset) as unknown as EntryRow[]
   }
 
   #entryById(id: string): LogEntry | undefined {
@@ -393,11 +398,6 @@ function collapseValue(value: JsonValue, threshold: number, collapsed: Map<strin
 
 function collapsedId(entryId: string, path: string): string {
   return `${entryId}:${path}`
-}
-
-function compareEntryOrder(left: LogEntry, right: LogEntry): number {
-  const time = left.timestamp.localeCompare(right.timestamp)
-  return time === 0 ? left.sequence - right.sequence : time
 }
 
 function escapeLike(value: string): string {

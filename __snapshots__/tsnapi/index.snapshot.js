@@ -19,8 +19,7 @@ export class LogStore {
   async *tail(_, _) {}
   close() {}
   nextSequence() {}
-  candidateRows(_, _) {}
-  matchesEntryBoundaries(_, _) {}
+  candidateRows(_, _, _, _) {}
   entryById(_) {}
   applyRetentionAfterWrites() {}
   applyPeriodicRetention() {}
