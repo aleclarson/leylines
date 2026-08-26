@@ -17,6 +17,7 @@ import type {
 } from '../core/types.js'
 
 const RETENTION_WRITE_INTERVAL = 2_500
+const SQLITE_BUSY_TIMEOUT_MS = 5_000
 
 /** Options for opening the low-level durable log store. */
 export interface OpenLogStoreOptions {
@@ -72,6 +73,7 @@ export class LogStore {
     mkdirSync(dirname(this.path), { recursive: true })
     this.#db = new DatabaseSync(this.path)
     this.#db.exec(`
+      PRAGMA busy_timeout = ${SQLITE_BUSY_TIMEOUT_MS};
       PRAGMA journal_mode = WAL;
       PRAGMA foreign_keys = ON;
 
@@ -106,32 +108,42 @@ export class LogStore {
   /** Append an entry, apply redaction, and return the persisted entry. */
   write(input: LogEntryInput): LogEntry {
     this.#assertOpen()
-    const sequence = this.#nextSequence()
-    const normalized = normalizeEntry({ ...input, id: input.id ?? randomUUID() }, sequence, this.#redaction)
-    const collapsed = new Map<string, JsonValue>()
-    const entry = collapseEntry(normalized, this.#collapseAboveBytes, collapsed)
+    // Reserve the writer lock before deriving the sequence. This serializes the
+    // read/insert pair across processes and keeps collapsed rows atomic with it.
+    this.#db.exec('BEGIN IMMEDIATE')
+    let entry: LogEntry
+    try {
+      const sequence = this.#nextSequence()
+      const normalized = normalizeEntry({ ...input, id: input.id ?? randomUUID() }, sequence, this.#redaction)
+      const collapsed = new Map<string, JsonValue>()
+      entry = collapseEntry(normalized, this.#collapseAboveBytes, collapsed)
 
-    this.#db.prepare(`
-      INSERT INTO entries (sequence, id, timestamp, level, scope, message, metadata_json, properties_json, error_json)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
-      entry.sequence,
-      entry.id,
-      entry.timestamp,
-      entry.level,
-      entry.scope,
-      entry.message,
-      JSON.stringify(entry.metadata),
-      JSON.stringify(entry.properties),
-      entry.error ? JSON.stringify(entry.error) : null,
-    )
+      this.#db.prepare(`
+        INSERT INTO entries (sequence, id, timestamp, level, scope, message, metadata_json, properties_json, error_json)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        entry.sequence,
+        entry.id,
+        entry.timestamp,
+        entry.level,
+        entry.scope,
+        entry.message,
+        JSON.stringify(entry.metadata),
+        JSON.stringify(entry.properties),
+        entry.error ? JSON.stringify(entry.error) : null,
+      )
 
-    const insertCollapsed = this.#db.prepare(`
-      INSERT INTO collapsed_values (id, entry_id, path, value_json)
-      VALUES (?, ?, ?, ?)
-    `)
-    for (const [path, value] of collapsed) {
-      insertCollapsed.run(collapsedId(entry.id, path), entry.id, path, JSON.stringify(value))
+      const insertCollapsed = this.#db.prepare(`
+        INSERT INTO collapsed_values (id, entry_id, path, value_json)
+        VALUES (?, ?, ?, ?)
+      `)
+      for (const [path, value] of collapsed) {
+        insertCollapsed.run(collapsedId(entry.id, path), entry.id, path, JSON.stringify(value))
+      }
+      this.#db.exec('COMMIT')
+    } catch (error) {
+      this.#db.exec('ROLLBACK')
+      throw error
     }
 
     this.#applyPeriodicRetention()

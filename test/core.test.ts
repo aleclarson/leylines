@@ -1,3 +1,5 @@
+import { spawn } from 'node:child_process'
+import { once } from 'node:events'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -36,6 +38,49 @@ describe('LogStore', () => {
     const reopened = openLogStore({ path })
     expect(reopened.query({ includeDebug: true }).entries.map(entry => entry.id)).toEqual([first.id, second.id])
     reopened.close()
+  })
+
+  it('serializes writes from multiple stores', () => {
+    const path = join(dir, 'logs.sqlite')
+    const first = openLogStore({ path })
+    const second = openLogStore({ path })
+
+    for (let index = 0; index < 20; index += 1) {
+      const store = index % 2 === 0 ? first : second
+      store.write({ id: `entry-${index}`, level: 'info', scope: 'app', message: `entry ${index}` })
+    }
+
+    expect(first.query({ includeDebug: true, limit: 20 }).entries.map(entry => entry.sequence)).toEqual(
+      Array.from({ length: 20 }, (_, index) => index + 1),
+    )
+    first.close()
+    second.close()
+  })
+
+  it('waits for transient write contention from another process', async () => {
+    const path = join(dir, 'logs.sqlite')
+    const store = openLogStore({ path })
+    const lock = spawn(process.execPath, ['--input-type=module', '--eval', `
+      import { DatabaseSync } from 'node:sqlite'
+      const db = new DatabaseSync(process.argv[1])
+      db.exec('PRAGMA journal_mode = WAL; BEGIN IMMEDIATE;')
+      db.prepare("INSERT INTO entries (id, timestamp, level, scope, message, metadata_json, properties_json) VALUES ('other-process', '2026-01-01T00:00:00.000Z', 'info', 'dev.worker', 'written elsewhere', '{}', '{}')").run()
+      process.stdout.write('locked')
+      setTimeout(() => {
+        db.exec('COMMIT')
+        db.close()
+      }, 150)
+    `, path], { stdio: ['ignore', 'pipe', 'inherit'] })
+    const exited = once(lock, 'exit')
+    await once(lock.stdout, 'data')
+
+    expect(() => store.write({ id: 'after-lock', level: 'info', scope: 'app', message: 'written' })).not.toThrow()
+    await exited
+    expect(store.query().entries.map(entry => [entry.id, entry.sequence])).toEqual([
+      ['other-process', 1],
+      ['after-lock', 2],
+    ])
+    store.close()
   })
 
   it('filters by scope prefix, text, level, regex, and property path', () => {
