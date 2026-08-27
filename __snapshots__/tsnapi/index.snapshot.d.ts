@@ -63,6 +63,7 @@ export interface LogQuery {
   text?: string;
   regex?: string | RegExp;
   properties?: PropertyFilter[];
+  fuzzy?: string[];
   includeDebug?: boolean;
   limit?: number;
 }

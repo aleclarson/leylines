@@ -27,6 +27,29 @@ chronological order. `debug` entries are hidden unless requested with
 The default recent timeline returns at most 50 entries when `--limit` is not
 provided.
 
+## Fuzzy Filters
+
+Add trailing fuzzy filters to the recent timeline or `tail` when exact options
+are too narrow:
+
+```sh
+ley payment
+ley 'pay*' '!failed'
+ley 'dev.*'
+ley tail dev.vite '!hmr'
+```
+
+Plain terms match case-insensitive whole words across the entry. Word
+boundaries are strict, so `pay` does not match `payment`. Add `*` at the start
+or end to extend a match within a word: `pay*`, `*ment`, or `*ay*`.
+
+Prefix a term with `!` to exclude matching entries. Every positive term must
+match, and every excluded term must not match.
+
+A term containing `.` targets the complete scope instead of all entry content.
+`dev.vite` matches only that scope, while `dev.*` matches scopes beginning with
+`dev.`. Quote terms containing `*` or `!` so the shell does not interpret them.
+
 ## Choosing Output Format
 
 Use compact default output when a human or agent is reading results as context:

@@ -112,6 +112,34 @@ describe('LogStore', () => {
     store.close()
   })
 
+  it('applies fuzzy word, wildcard, exclusion, and scope filters', () => {
+    const store = openLogStore({ path: join(dir, 'logs.sqlite') })
+    const entries = [
+      ['exact', 'app', 'Foo ready'],
+      ['prefix', 'app', 'foobar ready'],
+      ['suffix', 'app', 'barfoo ready'],
+      ['infix', 'app', 'barfoobaz ready'],
+      ['dev-exact', 'dev.vite', 'server ready'],
+      ['dev-nested', 'dev.vite.client', 'client ready'],
+      ['dev-other', 'dev.server', 'server ready'],
+      ['prod', 'prod.vite', 'server ready'],
+    ] as const
+    for (const [id, scope, message] of entries) {
+      store.write({ id, level: 'info', scope, message })
+    }
+
+    const ids = (fuzzy: string[]) => store.query({ fuzzy, limit: 20 }).entries.map((entry) => entry.id)
+    expect(ids(['foo'])).toEqual(['exact'])
+    expect(ids(['foo*'])).toEqual(['exact', 'prefix'])
+    expect(ids(['*foo'])).toEqual(['exact', 'suffix'])
+    expect(ids(['*foo*'])).toEqual(['exact', 'prefix', 'suffix', 'infix'])
+    expect(ids(['*foo*', '!barfoo'])).toEqual(['exact', 'prefix', 'infix'])
+    expect(ids(['dev.vite'])).toEqual(['dev-exact'])
+    expect(ids(['dev.*'])).toEqual(['dev-exact', 'dev-nested', 'dev-other'])
+    expect(ids(['!dev.*'])).toEqual(['exact', 'prefix', 'suffix', 'infix', 'prod'])
+    store.close()
+  })
+
   it('hides debug entries by default unless requested', () => {
     const store = openLogStore({ path: join(dir, 'logs.sqlite') })
     store.write({ id: 'debug', level: 'debug', scope: 'app', message: 'hidden' })

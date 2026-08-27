@@ -97,6 +97,7 @@ root.child({ scope: 'checkout.payment' }).info('captured')
 const page = logs.query({
   scopePrefix: 'checkout',
   minLevel: 'warn',
+  fuzzy: ['payment', '!retry'],
   properties: [{ path: 'request.id', equals: 'req-123' }],
   limit: 50,
 })
@@ -110,6 +111,10 @@ Queries return the newest page by default, in chronological and deterministic
 order. `before` selects the page immediately preceding its cursor; `after`
 selects the page immediately following its cursor. Returned pages remain
 chronological in both directions.
+
+`fuzzy` applies the same case-insensitive word filters as the CLI. Prefix an
+exclusion with `!`, use `*` at a word edge, and use a dotted term such as
+`dev.*` to match only scopes.
 
 Default queries return up to 50 entries. `limit` is clamped between 1 and 1000.
 

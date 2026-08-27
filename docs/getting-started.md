@@ -60,14 +60,16 @@ The CLI reads the same store:
 ```sh
 ley --limit 20
 ley --scope-prefix app
+ley startup
 ley scopes
 ```
 
 Use compact output for quick reading. Use `--json` when output will be parsed,
 stored, compared, or when exact entry fields are needed.
 
-After the first log example, `ley --scope-prefix app` prints the `app.startup`
-entry, and `ley scopes` includes `app.startup`.
+After the first log example, both `ley --scope-prefix app` and the
+case-insensitive fuzzy filter `ley startup` print the `app.startup` entry.
+`ley scopes` includes `app.startup`.
 
 ## Capture Browser Logs In Vite
 

@@ -56,7 +56,52 @@ export function matchesQuery(entry: LogEntry, query: LogQuery): boolean {
     }
   }
 
+  if (query.fuzzy?.some((term) => !matchesFuzzyTerm(entry, term))) {
+    return false
+  }
+
   return true
+}
+
+function matchesFuzzyTerm(entry: LogEntry, term: string): boolean {
+  const exclude = term.startsWith('!')
+  const pattern = exclude ? term.slice(1) : term
+  const target = pattern.includes('.')
+    ? entry.scope
+    : [
+        entry.level,
+        entry.scope,
+        entry.message,
+        JSON.stringify(entry.metadata),
+        JSON.stringify(entry.properties),
+        entry.error ? JSON.stringify(entry.error) : '',
+      ].join(' ')
+  const matches = pattern.includes('.')
+    ? scopePattern(pattern).test(target)
+    : wordPattern(pattern).test(target)
+  return exclude ? !matches : matches
+}
+
+function scopePattern(pattern: string): RegExp {
+  const source = pattern
+    .split('*')
+    .map((part) => escapeRegExp(part))
+    .join('.*')
+  return new RegExp(`^${source}$`, 'iu')
+}
+
+function wordPattern(pattern: string): RegExp {
+  const startsWithWildcard = pattern.startsWith('*')
+  const endsWithWildcard = pattern.endsWith('*')
+  const word = pattern.slice(startsWithWildcard ? 1 : 0, endsWithWildcard ? -1 : undefined)
+  const wordCharacter = '[\\p{L}\\p{N}_]'
+  const before = startsWithWildcard ? `${wordCharacter}*` : `(?<!${wordCharacter})`
+  const after = endsWithWildcard ? `${wordCharacter}*` : `(?!${wordCharacter})`
+  return new RegExp(`${before}${escapeRegExp(word)}${after}`, 'iu')
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
 export function toIso(value: Date | string): string {

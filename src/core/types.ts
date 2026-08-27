@@ -99,6 +99,8 @@ export interface LogQuery {
   regex?: string | RegExp
   /** Equality filters over structured properties. */
   properties?: PropertyFilter[]
+  /** Case-insensitive fuzzy terms. Prefix exclusions with `!`; dotted terms match only scopes. */
+  fuzzy?: string[]
   /** Include debug entries, which are hidden by default. */
   includeDebug?: boolean
   /** Maximum number of entries to return. */

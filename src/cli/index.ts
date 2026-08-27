@@ -12,6 +12,7 @@ import {
   option,
   optional,
   positional,
+  restPositionals,
   run,
   string,
   subcommands,
@@ -36,6 +37,7 @@ type QueryArgs = {
   text?: string
   regex?: string
   properties: PropertyFilter[]
+  fuzzy: string[]
 }
 
 const commands = new Set(['recent', 'tail', 'scopes', 'expand', 'path'])
@@ -81,6 +83,21 @@ const PropertyFilterType: Type<string, PropertyFilter> = {
     }
   },
 }
+
+const FuzzyTermType = extendType(string, {
+  displayName: 'filter',
+  description: 'Case-insensitive word filter; prefix with ! to exclude and use * at either edge',
+  async from(value) {
+    const pattern = value.startsWith('!') ? value.slice(1) : value
+    if (!pattern) {
+      throw new Error('Fuzzy filters must contain a pattern after !')
+    }
+    if (pattern.slice(1, -1).includes('*')) {
+      throw new Error('* may only appear at the start or end of a fuzzy filter')
+    }
+    return value
+  },
+})
 
 const queryArgs = {
   json: flag({
@@ -158,6 +175,11 @@ const queryArgs = {
     long: 'property',
     description: 'Property equality filter; may be repeated',
     defaultValue: () => [],
+  }),
+  fuzzy: restPositionals({
+    type: FuzzyTermType,
+    displayName: 'filter',
+    description: 'Fuzzy filters; all include filters must match and ! filters must not match',
   }),
 }
 
@@ -294,10 +316,7 @@ function normalizeArgv(argv: string[]): string[] {
   if (commands.has(first) || helpFlags.has(first)) {
     return [execPath, scriptPath, ...args]
   }
-  if (first.startsWith('-')) {
-    return [execPath, scriptPath, 'recent', ...args]
-  }
-  return [execPath, scriptPath, ...args]
+  return [execPath, scriptPath, 'recent', ...args]
 }
 
 function toQuery(args: QueryArgs): LogQuery {
@@ -315,6 +334,7 @@ function toQuery(args: QueryArgs): LogQuery {
     text: args.text,
     regex: args.regex,
     properties: args.properties.length ? args.properties : undefined,
+    fuzzy: args.fuzzy.length ? args.fuzzy : undefined,
   }
 }
 

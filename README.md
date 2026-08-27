@@ -65,6 +65,7 @@ The CLI reads the same inferred store as the Node API.
 ley
 ley --scope-prefix checkout --min-level warn
 ley --property request.id=req-123
+ley 'pay*' '!failed'
 ley tail --pretty
 ley scopes
 ley expand '<entry-id>:properties.payload'
@@ -79,6 +80,7 @@ Filtering supports:
 - scopes: `--scope`, `--scope-prefix`
 - text: `--text`, `--regex`
 - properties: `--property path=value`
+- fuzzy terms: `foo`, `'!foo'`, `'foo*'`, `'*foo'`, `'dev.*'`
 - pagination: `--limit`
 
 Default output is compact and chronological, which works well for quick human

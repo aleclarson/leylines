@@ -92,6 +92,32 @@ describe('runCli', () => {
     }
   })
 
+  it('uses trailing fuzzy filters on the default recent command', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'leylines-cli-'))
+    const cwd = process.cwd()
+    const write = vi.spyOn(process.stdout, 'write').mockImplementation(() => true)
+
+    try {
+      process.chdir(dir)
+      const store = openLogStore({ path: join(dir, '.leylines/logs.sqlite') })
+      store.write({ id: 'failed', level: 'error', scope: 'checkout', message: 'Payment failed' })
+      store.write({ id: 'pending', level: 'info', scope: 'checkout', message: 'Payment pending' })
+      store.write({ id: 'unrelated', level: 'info', scope: 'checkout', message: 'Order ready' })
+      store.close()
+
+      await runCli(['node', 'ley', 'PAY*', '!failed', '--json'])
+
+      const output = write.mock.calls.map((call) => call[0]).join('')
+      expect(JSON.parse(output).entries.map((entry: { id: string }) => entry.id)).toEqual([
+        'pending',
+      ])
+    } finally {
+      write.mockRestore()
+      process.chdir(cwd)
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
   it('prints spacious entries with --pretty', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'leylines-cli-'))
     const cwd = process.cwd()
