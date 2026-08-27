@@ -9,7 +9,6 @@ export class LogStore {
   redaction
   collapseAboveBytes
   writesSinceRetention
-  events
   closed
   constructor(_) {}
   write(_) {}
@@ -21,6 +20,8 @@ export class LogStore {
   nextSequence() {}
   candidateRows(_, _, _, _) {}
   entryById(_) {}
+  latestSequence() {}
+  rowsAfterSequence(_) {}
   applyRetentionAfterWrites() {}
   applyPeriodicRetention() {}
   applyRetention() {}

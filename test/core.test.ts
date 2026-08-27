@@ -241,4 +241,19 @@ describe('LogStore', () => {
     controller.abort()
     store.close()
   })
+
+  it('tails entries written through another store connection', async () => {
+    const path = join(dir, 'logs.sqlite')
+    const reader = openLogStore({ path })
+    const writer = openLogStore({ path })
+    const iterator = reader.tail({ limit: 1 })[Symbol.asyncIterator]()
+
+    const next = iterator.next()
+    writer.write({ id: 'external', level: 'info', scope: 'worker', message: 'written elsewhere' })
+
+    await expect(next).resolves.toMatchObject({ value: { id: 'external' }, done: false })
+    await expect(iterator.next()).resolves.toEqual({ done: true, value: undefined })
+    writer.close()
+    reader.close()
+  })
 })

@@ -183,11 +183,17 @@ const tailCommand = command({
   async handler(args) {
     const format = outputFormat(args)
     const logs = openCliLogs()
+    const controller = new AbortController()
+    const stop = () => controller.abort()
+    process.once('SIGINT', stop)
+    process.once('SIGTERM', stop)
     try {
-      for await (const entry of logs.tail(toQuery(args))) {
+      for await (const entry of logs.tail(toQuery(args), { signal: controller.signal })) {
         writeEntries([entry], format)
       }
     } finally {
+      process.removeListener('SIGINT', stop)
+      process.removeListener('SIGTERM', stop)
       logs.close()
     }
   },

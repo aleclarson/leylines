@@ -1,7 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { mkdirSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
-import { EventEmitter, on } from 'node:events'
 import { DatabaseSync } from 'node:sqlite'
 import { normalizeEntry } from '../core/entry.js'
 import { matchesQuery, toIso } from '../core/query.js'
@@ -18,6 +17,8 @@ import type {
 
 const RETENTION_WRITE_INTERVAL = 2_500
 const SQLITE_BUSY_TIMEOUT_MS = 5_000
+const TAIL_POLL_INTERVAL_MS = 100
+const TAIL_BATCH_SIZE = 1_000
 
 /** Options for opening the low-level durable log store. */
 export interface OpenLogStoreOptions {
@@ -60,7 +61,6 @@ export class LogStore {
   #redaction: RedactionOptions
   #collapseAboveBytes: number
   #writesSinceRetention = 0
-  #events = new EventEmitter()
   #closed = false
 
   /** Open or create a SQLite log store. */
@@ -147,7 +147,6 @@ export class LogStore {
     }
 
     this.#applyPeriodicRetention()
-    this.#events.emit('entry', entry)
     return entry
   }
 
@@ -204,10 +203,31 @@ export class LogStore {
   /** Stream entries appended after subscription that match the query. */
   async *tail(query: LogQuery = {}, options: { signal?: AbortSignal } = {}): AsyncIterable<LogEntry> {
     this.#assertOpen()
-    for await (const [entry] of on(this.#events, 'entry', { signal: options.signal })) {
-      const logEntry = entry as LogEntry
-      if (matchesQuery(logEntry, query)) {
-        yield logEntry
+    let cursor = this.#latestSequence()
+    let remaining = query.limit === undefined
+      ? undefined
+      : Math.max(1, Math.min(query.limit, 1_000))
+
+    while (!options.signal?.aborted && remaining !== 0) {
+      this.#assertOpen()
+      const rows = this.#rowsAfterSequence(cursor)
+
+      for (const row of rows) {
+        cursor = row.sequence
+        const entry = rowToEntry(row)
+        if (matchesQuery(entry, query)) {
+          yield entry
+          if (remaining !== undefined) {
+            remaining -= 1
+            if (remaining === 0) {
+              return
+            }
+          }
+        }
+      }
+
+      if (rows.length < TAIL_BATCH_SIZE && !await waitForTailPoll(options.signal)) {
+        return
       }
     }
   }
@@ -297,6 +317,21 @@ export class LogStore {
     return row ? rowToEntry(row) : undefined
   }
 
+  #latestSequence(): number {
+    const row = this.#db.prepare('SELECT MAX(sequence) AS sequence FROM entries').get() as { sequence: number | null }
+    return row.sequence ?? 0
+  }
+
+  #rowsAfterSequence(sequence: number): EntryRow[] {
+    return this.#db.prepare(`
+      SELECT sequence, id, timestamp, level, scope, message, metadata_json, properties_json, error_json
+      FROM entries
+      WHERE sequence > ?
+      ORDER BY sequence ASC
+      LIMIT ?
+    `).all(sequence, TAIL_BATCH_SIZE) as unknown as EntryRow[]
+  }
+
   #applyRetentionAfterWrites(): void {
     if (this.#writesSinceRetention === 0) {
       return
@@ -349,6 +384,26 @@ export class LogStore {
 /** Open or create a low-level durable log store. */
 export function openLogStore(options: OpenLogStoreOptions): LogStore {
   return new LogStore(options)
+}
+
+function waitForTailPoll(signal?: AbortSignal): Promise<boolean> {
+  if (signal?.aborted) {
+    return Promise.resolve(false)
+  }
+
+  return new Promise(resolve => {
+    const timeout = setTimeout(() => finish(true), TAIL_POLL_INTERVAL_MS)
+    const onAbort = () => {
+      clearTimeout(timeout)
+      finish(false)
+    }
+    const finish = (keepPolling: boolean) => {
+      signal?.removeEventListener('abort', onAbort)
+      resolve(keepPolling)
+    }
+
+    signal?.addEventListener('abort', onAbort, { once: true })
+  })
 }
 
 function rowToEntry(row: EntryRow): LogEntry {

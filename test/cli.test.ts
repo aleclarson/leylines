@@ -181,6 +181,36 @@ describe('runCli', () => {
       '--json and --pretty cannot be used together',
     )
   })
+
+  it('tails writes from another connection and stops at the limit', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'leylines-cli-'))
+    const cwd = process.cwd()
+    const write = vi.spyOn(process.stdout, 'write').mockImplementation(() => true)
+
+    try {
+      process.chdir(dir)
+      const sigintListeners = process.listenerCount('SIGINT')
+      const tail = runCli(['node', 'ley', 'tail', '--limit', '2', '--json'])
+      await vi.waitFor(() =>
+        expect(process.listenerCount('SIGINT')).toBeGreaterThan(sigintListeners),
+      )
+      const store = openLogStore({ path: join(dir, '.leylines/logs.sqlite') })
+      store.write({ id: 'one', level: 'info', scope: 'app', message: 'one' })
+      store.write({ id: 'two', level: 'info', scope: 'app', message: 'two' })
+      store.close()
+
+      await tail
+
+      const entries = write.mock.calls.map(
+        (call) => JSON.parse(String(call[0])).entries[0] as { id: string },
+      )
+      expect(entries.map((entry) => entry.id)).toEqual(['one', 'two'])
+    } finally {
+      write.mockRestore()
+      process.chdir(cwd)
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
 })
 
 function outputOf(spy: ReturnType<typeof vi.spyOn>): string {
