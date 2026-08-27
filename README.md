@@ -65,6 +65,7 @@ The CLI reads the same inferred store as the Node API.
 ley
 ley --scope-prefix checkout --min-level warn
 ley --property request.id=req-123
+ley tail --pretty
 ley scopes
 ley expand '<entry-id>:properties.payload'
 ley path
@@ -81,7 +82,8 @@ Filtering supports:
 - pagination: `--limit`
 
 Default output is compact and chronological, which works well for quick human
-or agent triage. Use `--json` when output will be parsed, stored, compared, or
+or agent triage. Add `--pretty` to `recent` or `tail` for spaced, color-coded
+terminal output. Use `--json` when output will be parsed, stored, compared, or
 when exact entry fields such as ids, sequences, and metadata are needed.
 
 ## Vite

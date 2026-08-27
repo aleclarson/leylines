@@ -44,6 +44,7 @@ describe('runCli', () => {
     const output = outputOf(log)
     expect(output).toContain('leylines recent')
     expect(output).toContain('--limit <count>')
+    expect(output).toContain('--pretty')
   })
 
   it('prints the most recent matching entries in chronological order', async () => {
@@ -89,6 +90,96 @@ describe('runCli', () => {
       process.chdir(cwd)
       rmSync(dir, { recursive: true, force: true })
     }
+  })
+
+  it('prints spacious entries with --pretty', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'leylines-cli-'))
+    const cwd = process.cwd()
+    const write = vi.spyOn(process.stdout, 'write').mockImplementation(() => true)
+
+    try {
+      process.chdir(dir)
+      const store = openLogStore({ path: join(dir, '.leylines/logs.sqlite') })
+      store.write({
+        id: 'payment',
+        timestamp: '2026-01-01T00:00:00.000Z',
+        level: 'warn',
+        scope: 'checkout.payment',
+        message: 'Payment needs attention',
+        properties: { order: { id: 'ord_123' }, attempts: 2 },
+      })
+      store.close()
+
+      await runCli(['node', 'ley', 'recent', '--pretty'])
+
+      const output = write.mock.calls.map((call) => call[0]).join('')
+      expect(output).toBe(
+        [
+          '!  2026-01-01T00:00:00.000Z  checkout.payment',
+          '   Payment needs attention',
+          '   order: {',
+          '     "id": "ord_123"',
+          '   }',
+          '   attempts: 2',
+          '',
+          '',
+        ].join('\n'),
+      )
+      expect(output).not.toContain('\u001B[')
+    } finally {
+      write.mockRestore()
+      process.chdir(cwd)
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  it('styles pretty entries only when writing to a color terminal', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'leylines-cli-'))
+    const cwd = process.cwd()
+    const write = vi.spyOn(process.stdout, 'write').mockImplementation(() => true)
+    const isTTY = Object.getOwnPropertyDescriptor(process.stdout, 'isTTY')
+    const noColor = process.env.NO_COLOR
+
+    try {
+      process.chdir(dir)
+      Object.defineProperty(process.stdout, 'isTTY', { configurable: true, value: true })
+      delete process.env.NO_COLOR
+      const store = openLogStore({ path: join(dir, '.leylines/logs.sqlite') })
+      store.write({
+        timestamp: '2026-01-01T00:00:00.000Z',
+        level: 'error',
+        scope: 'checkout.payment',
+        message: 'Payment failed',
+      })
+      store.close()
+
+      await runCli(['node', 'ley', 'recent', '--pretty'])
+
+      const output = write.mock.calls.map((call) => call[0]).join('')
+      expect(output).toContain('\u001B[31mx\u001B[0m')
+      expect(output).toContain('\u001B[1mPayment failed\u001B[0m')
+      expect(output).not.toContain('2026-01-01T00:00:00.000Z')
+    } finally {
+      if (isTTY) {
+        Object.defineProperty(process.stdout, 'isTTY', isTTY)
+      } else {
+        delete (process.stdout as { isTTY?: boolean }).isTTY
+      }
+      if (noColor === undefined) {
+        delete process.env.NO_COLOR
+      } else {
+        process.env.NO_COLOR = noColor
+      }
+      write.mockRestore()
+      process.chdir(cwd)
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  it('rejects combining --pretty with --json', async () => {
+    await expect(runCli(['node', 'ley', 'recent', '--pretty', '--json'])).rejects.toThrow(
+      '--json and --pretty cannot be used together',
+    )
   })
 })
 

@@ -22,6 +22,7 @@ import type { JsonValue, LogEntry, LogLevel, LogQuery, PropertyFilter } from '..
 
 type QueryArgs = {
   json: boolean
+  pretty: boolean
   includeDebug: boolean
   limit?: number
   since?: string
@@ -85,6 +86,11 @@ const queryArgs = {
   json: flag({
     long: 'json',
     description: 'Emit machine-readable JSON',
+    defaultValue: () => false,
+  }),
+  pretty: flag({
+    long: 'pretty',
+    description: 'Emit spacious, styled output for human reading',
     defaultValue: () => false,
   }),
   includeDebug: flag({
@@ -160,9 +166,10 @@ const recentCommand = command({
   description: 'Print recent log entries',
   args: queryArgs,
   handler(args) {
+    const format = outputFormat(args)
     const logs = openCliLogs()
     try {
-      writeEntries(logs.query(toQuery(args)).entries, args.json)
+      writeEntries(logs.query(toQuery(args)).entries, format)
     } finally {
       logs.close()
     }
@@ -174,10 +181,11 @@ const tailCommand = command({
   description: 'Print new log entries as they are appended',
   args: queryArgs,
   async handler(args) {
+    const format = outputFormat(args)
     const logs = openCliLogs()
     try {
       for await (const entry of logs.tail(toQuery(args))) {
-        writeEntries([entry], args.json)
+        writeEntries([entry], format)
       }
     } finally {
       logs.close()
@@ -304,8 +312,17 @@ function toQuery(args: QueryArgs): LogQuery {
   }
 }
 
-function writeEntries(entries: LogEntry[], json: boolean): void {
-  if (json) {
+type OutputFormat = 'compact' | 'json' | 'pretty'
+
+function outputFormat(args: Pick<QueryArgs, 'json' | 'pretty'>): OutputFormat {
+  if (args.json && args.pretty) {
+    throw new Error('--json and --pretty cannot be used together')
+  }
+  return args.json ? 'json' : args.pretty ? 'pretty' : 'compact'
+}
+
+function writeEntries(entries: LogEntry[], format: OutputFormat): void {
+  if (format === 'json') {
     process.stdout.write(`${JSON.stringify({ entries })}\n`)
     return
   }
@@ -316,10 +333,75 @@ function writeEntries(entries: LogEntry[], json: boolean): void {
   }
 
   for (const entry of entries) {
+    if (format === 'pretty') {
+      process.stdout.write(formatPrettyEntry(entry))
+      continue
+    }
     process.stdout.write(
       `${entry.timestamp} ${entry.level.toUpperCase().padEnd(5)} ${entry.scope} ${entry.message}${formatProperties(entry)}\n`,
     )
   }
+}
+
+const prettyLevel = {
+  debug: { symbol: '.', color: 90 },
+  info: { symbol: 'i', color: 36 },
+  warn: { symbol: '!', color: 33 },
+  error: { symbol: 'x', color: 31 },
+} as const
+
+function formatPrettyEntry(entry: LogEntry): string {
+  const level = prettyLevel[entry.level]
+  const color = (text: string) => ansi(level.color, text)
+  const lines = [
+    `${color(level.symbol)}  ${ansi(2, prettyTimestamp(entry.timestamp))}  ${ansi(2, entry.scope)}`,
+    `   ${ansi(1, entry.message)}`,
+  ]
+
+  for (const [key, value] of Object.entries(entry.properties)) {
+    lines.push(...formatPrettyField(key, value))
+  }
+
+  if (entry.error) {
+    const name = entry.error.name ?? 'Error'
+    lines.push(`   ${color(`${name}: ${entry.error.message}`)}`)
+    if (entry.error.stack) {
+      const stackLines = entry.error.stack.split('\n')
+      const firstLineRepeatsMessage = stackLines[0]?.includes(entry.error.message)
+      for (const line of firstLineRepeatsMessage ? stackLines.slice(1) : stackLines) {
+        lines.push(`   ${ansi(2, line)}`)
+      }
+    }
+    if (entry.error.cause !== undefined) {
+      lines.push(...formatPrettyField('cause', entry.error.cause))
+    }
+  }
+
+  return `${lines.join('\n')}\n\n`
+}
+
+function formatPrettyField(key: string, value: JsonValue): string[] {
+  const formatted = JSON.stringify(value, null, 2) ?? 'null'
+  const [first = '', ...rest] = formatted.split('\n')
+  return [`   ${ansi(2, `${key}:`)} ${first}`, ...rest.map((line) => `   ${line}`)]
+}
+
+function prettyTimestamp(timestamp: string): string {
+  if (!process.stdout.isTTY) {
+    return timestamp
+  }
+
+  const date = new Date(timestamp)
+  if (Number.isNaN(date.valueOf())) {
+    return timestamp
+  }
+  return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}:${String(date.getSeconds()).padStart(2, '0')}.${String(date.getMilliseconds()).padStart(3, '0')}`
+}
+
+function ansi(code: number, text: string): string {
+  return process.stdout.isTTY && process.env.NO_COLOR === undefined
+    ? `\u001B[${code}m${text}\u001B[0m`
+    : text
 }
 
 function formatProperties(entry: LogEntry): string {
