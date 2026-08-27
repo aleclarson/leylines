@@ -36,7 +36,7 @@ are too narrow:
 ley payment
 ley 'pay*' '!failed'
 ley 'dev.*'
-ley tail dev.vite '!hmr'
+ley tail --print 20 dev.vite '!hmr'
 ```
 
 Plain terms match case-insensitive whole words across the entry. Word
@@ -49,6 +49,10 @@ match, and every excluded term must not match.
 A term containing `.` targets the complete scope instead of all entry content.
 `dev.vite` matches only that scope, while `dev.*` matches scopes beginning with
 `dev.`. Quote terms containing `*` or `!` so the shell does not interpret them.
+
+`tail --print <count>` prints the last matching entries in chronological order
+before waiting for new ones. Its count is independent of `--limit`, which
+controls how many new entries are printed before the tail exits.
 
 ## Choosing Output Format
 

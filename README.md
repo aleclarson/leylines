@@ -66,7 +66,7 @@ ley
 ley --scope-prefix checkout --min-level warn
 ley --property request.id=req-123
 ley 'pay*' '!failed'
-ley tail --pretty
+ley tail --print 20 --pretty
 ley scopes
 ley expand '<entry-id>:properties.payload'
 ley path
@@ -82,6 +82,10 @@ Filtering supports:
 - properties: `--property path=value`
 - fuzzy terms: `foo`, `'!foo'`, `'foo*'`, `'*foo'`, `'dev.*'`
 - pagination: `--limit`
+
+Use `ley tail --print <count>` to print the last matching entries before
+waiting for new ones. `--limit` still controls how many new entries are printed
+before the tail exits.
 
 Default output is compact and chronological, which works well for quick human
 or agent triage. Add `--pretty` to `recent` or `tail` for spaced, color-coded

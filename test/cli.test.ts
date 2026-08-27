@@ -237,6 +237,39 @@ describe('runCli', () => {
       rmSync(dir, { recursive: true, force: true })
     }
   })
+
+  it('prints the requested recent entries before tailing new entries', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'leylines-cli-'))
+    const cwd = process.cwd()
+    const write = vi.spyOn(process.stdout, 'write').mockImplementation(() => true)
+
+    try {
+      process.chdir(dir)
+      const store = openLogStore({ path: join(dir, '.leylines/logs.sqlite') })
+      store.write({ id: 'old-one', level: 'info', scope: 'app', message: 'old one' })
+      store.write({ id: 'old-two', level: 'info', scope: 'app', message: 'old two' })
+      store.write({ id: 'old-three', level: 'info', scope: 'app', message: 'old three' })
+
+      const tail = runCli(['node', 'ley', 'tail', '--print', '2', '--limit', '1', '--json'])
+      await vi.waitFor(() => expect(write).toHaveBeenCalledTimes(1))
+      store.write({ id: 'new', level: 'info', scope: 'app', message: 'new' })
+      store.close()
+
+      await tail
+
+      const batches = write.mock.calls.map(
+        (call) => JSON.parse(String(call[0])).entries as { id: string }[],
+      )
+      expect(batches.map((entries) => entries.map((entry) => entry.id))).toEqual([
+        ['old-two', 'old-three'],
+        ['new'],
+      ])
+    } finally {
+      write.mockRestore()
+      process.chdir(cwd)
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
 })
 
 function outputOf(spy: ReturnType<typeof vi.spyOn>): string {

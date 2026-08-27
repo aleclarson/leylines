@@ -201,7 +201,14 @@ const recentCommand = command({
 const tailCommand = command({
   name: 'tail',
   description: 'Print new log entries as they are appended',
-  args: queryArgs,
+  args: {
+    ...queryArgs,
+    print: option({
+      type: optional(PositiveInteger),
+      long: 'print',
+      description: 'Print the last count matching entries before tailing',
+    }),
+  },
   async handler(args) {
     const format = outputFormat(args)
     const logs = openCliLogs()
@@ -210,6 +217,12 @@ const tailCommand = command({
     process.once('SIGINT', stop)
     process.once('SIGTERM', stop)
     try {
+      if (args.print !== undefined) {
+        const entries = logs.query({ ...toQuery(args), limit: args.print }).entries
+        if (entries.length) {
+          writeEntries(entries, format)
+        }
+      }
       for await (const entry of logs.tail(toQuery(args), { signal: controller.signal })) {
         writeEntries([entry], format)
       }
